@@ -75,10 +75,19 @@ canvas{display:block;cursor:grab}canvas:active{cursor:grabbing}
 .tr:hover .df{display:block}
 .df{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#373d5c;border:1px solid #4a5080;border-radius:5px;padding:9px 13px;font-size:12px;color:#d0d4e0;width:250px;box-shadow:0 3px 10px rgba(0,0,0,.3);font-weight:400;z-index:10}
 footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-size:12px;border-top:1px solid var(--bd2)}
+.si{display:flex;align-items:baseline;gap:5px}
+.si .sv2{font:700 16px var(--mn);color:var(--ac)}
+.si .sl2{font-size:10px;color:#8a90a8}
 </style>
 </head>
 <body>
-<div class="hd"><h1>FDA AI/ML Device Predicate Networks</h1><span class="bg" id="badge">Loading...</span></div>
+<div class="hd">
+  <h1>FDA AI/ML Device Predicate Networks</h1>
+  <p style="color:#8a90a8;font-size:13px;margin-top:4px">Explore how FDA-cleared AI devices rely on earlier predicates across specialties and pathways</p>
+  <span class="bg" id="badge">Loading...</span>
+</div>
+<div id="statsbar" style="background:#2d3250;padding:8px 28px;display:flex;gap:24px;flex-wrap:wrap;border-bottom:1px solid #3a4060">
+</div>
 <div class="ct">
   <div class="cg"><label>Specialty</label><select id="spec"></select></div>
   <div class="cg"><label>Pathway</label><select id="fda"><option value="all">All</option><option value="0">510(k)</option><option value="1">De Novo</option><option value="2">Premarket</option></select></div>
@@ -218,7 +227,56 @@ function loadSpec(s){
   var st=d.g.st;document.getElementById('badge').textContent=st.total+' devices \u00b7 '+Object.keys(st.fda).map(function(k){return st.fda[k]+' '+k}).join(' \u00b7 ');
   hlSet=null;selKey=null;document.getElementById('q').value='';
   document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';
+  updateStats();
   filter();fit();
+}
+
+function updateStats(){
+  // Compute summary stats
+  var total=nodes.length;
+  var nonAI=0,deNovo=0,fiveK=0,pma=0,hubs=0,maxDeps=0,maxDepId='',crossSpec=0;
+  nodes.forEach(function(n){
+    if(isAllView){if(n[4]===0)nonAI++}
+    else{if(n[4]===0)nonAI++}
+    if(n[3]===0)fiveK++;else if(n[3]===1)deNovo++;else if(n[3]===2)pma++;
+  });
+  // Hub devices and largest family
+  var depCounts={};
+  Object.keys(childMap).forEach(function(id){
+    var c=childMap[id].length;
+    depCounts[id]=c;
+    if(c>=3)hubs++;
+    if(c>maxDeps){maxDeps=c;maxDepId=id}
+  });
+  // Cross-specialty predicates (only for specialty views)
+  if(!isAllView){
+    nodes.forEach(function(n){if(n[4]===2)crossSpec++});
+  }
+  // Largest predicate family (BFS from biggest hub)
+  var largestFamily=0;
+  if(maxDepId){
+    var famAdj={};
+    edges.forEach(function(e){
+      if(!famAdj[e[0]])famAdj[e[0]]=[];if(!famAdj[e[1]])famAdj[e[1]]=[];
+      famAdj[e[0]].push(e[1]);famAdj[e[1]].push(e[0]);
+    });
+    var vis=new Set(),q=[maxDepId];
+    while(q.length){var c=q.shift();if(vis.has(c))continue;vis.add(c);(famAdj[c]||[]).forEach(function(nb){if(!vis.has(nb))q.push(nb)})}
+    largestFamily=vis.size;
+  }
+  var pctNonAI=total>0?(100*nonAI/total).toFixed(1):'0';
+  var sb=document.getElementById('statsbar');
+  var h='';
+  h+='<div class="si"><span class="sv2">'+pctNonAI+'%</span><span class="sl2">Non-AI predicates</span></div>';
+  h+='<div class="si"><span class="sv2">'+fiveK+'</span><span class="sl2">510(k)</span></div>';
+  h+='<div class="si"><span class="sv2">'+deNovo+'</span><span class="sl2">De Novo</span></div>';
+  h+='<div class="si"><span class="sv2">'+pma+'</span><span class="sl2">PMA</span></div>';
+  h+='<div class="si"><span class="sv2">'+hubs+'</span><span class="sl2">Hub devices (3+)</span></div>';
+  h+='<div class="si"><span class="sv2">'+largestFamily+'</span><span class="sl2">Largest family</span></div>';
+  if(!isAllView&&crossSpec>0){
+    h+='<div class="si"><span class="sv2">'+crossSpec+'</span><span class="sl2">Cross-specialty predicates</span></div>';
+  }
+  sb.innerHTML=h;
 }
 
 function updateLegend(){
@@ -312,7 +370,7 @@ function treeLayout(){
   var nodeCount=fNodes.length;
   var leafPx=nodeCount>500?14:nodeCount>300?17:20;
   var compGap=nodeCount>500?7:nodeCount>300?9:11;
-  var xCursor=100;
+  var xCursor=160; // Start further right so first tree doesn't sit on y-axis
   var xGap=compGap;
 
   // First pass: compute X positions for connected components only
@@ -359,7 +417,7 @@ function treeLayout(){
   });
 
   // Compute totalH based on total width and canvas aspect ratio
-  var totalWidth=xCursor-100;
+  var totalWidth=xCursor-160;
   var canvasAR=cv?cv.clientWidth/Math.max(cv.clientHeight,1):1.6;
   var totalH=Math.max(500,totalWidth/canvasAR);
 
@@ -373,17 +431,27 @@ function treeLayout(){
     });
   });
 
-  // Spread isolated nodes evenly across the connected component width
+  // Shuffle and spread isolated nodes to avoid visible specialty-based patterns
   if(isolated.length>0){
+    // Deterministic shuffle based on submission number hash to break ordering
+    var shuffled=isolated.slice();
+    shuffled.sort(function(a,b){
+      var ha=0,hb=0;
+      for(var i=0;i<a[0].length;i++)ha=(ha*31+a[0].charCodeAt(i))&0x7FFFFFFF;
+      for(var i=0;i<b[0].length;i++)hb=(hb*31+b[0].charCodeAt(i))&0x7FFFFFFF;
+      return ha-hb;
+    });
     var isoWidth=Math.max(totalWidth,400);
-    var isoSpacing=isoWidth/(isolated.length+1);
-    isolated.forEach(function(comp,i){
+    var isoSpacing=isoWidth/(shuffled.length+1);
+    shuffled.forEach(function(comp,i){
       var id=comp[0];
       var n=nodeMap[id];if(!n)return;
       var t=new Date(n[1]).getTime();
       var y=totalH-40-((t-minD)/dr)*(totalH-80);
-      var jitter=((id.charCodeAt(1)||0)%9-4)*1.5;
-      var x=100+isoSpacing*(i+1)+jitter;
+      // Stronger jitter using hash of full ID
+      var hash=0;for(var j=0;j<id.length;j++)hash=(hash*17+id.charCodeAt(j))&0xFFFF;
+      var jitter=((hash%20)-10)*1.2;
+      var x=160+isoSpacing*(i+1)+jitter;
       posMap.set(id,{x:x,y:y,n:n});
     });
   }
@@ -500,9 +568,19 @@ function showDet(n){
     predHtml='<span style="font-family:var(--mn);cursor:pointer;color:#2563eb" onclick="clickDev(\''+predId+'\')">'+predId+'</span> ('+predName+')';
   }
   
-  // Dependents info
+  // Direct dependents
   var deps=childMap[id]||[];
-  var depsHtml=deps.length===0?'None':'<strong>'+deps.length+' device'+(deps.length>1?'s':'')+'</strong>';
+  
+  // Total downstream (recursive)
+  function countDownstream(did){
+    var ch=childMap[did]||[];
+    var total=ch.length;
+    ch.forEach(function(c){total+=countDownstream(c)});
+    return total;
+  }
+  var totalDown=countDownstream(id);
+  
+  var depsHtml=deps.length===0?'None':'<strong>'+deps.length+' direct</strong>'+(totalDown>deps.length?' ('+totalDown+' total downstream)':'');
   if(deps.length>0&&deps.length<=6){
     depsHtml+='<br>';
     deps.forEach(function(did){
@@ -519,18 +597,23 @@ function showDet(n){
   }
 
   document.getElementById('sb').innerHTML=
-    '<div class="fd"><div class="fl">Submission Number</div><div class="fv" style="font-family:var(--mn)">'+id+'</div></div>'+
+    // Copyable submission number with copy button
+    '<div class="fd"><div class="fl">Submission Number</div><div class="fv" style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--mn);font-size:14px;font-weight:600;user-select:all">'+id+'</span><button onclick="navigator.clipboard.writeText(\''+id+'\');this.textContent=\'Copied!\';setTimeout(function(){document.querySelector(\'#sb .cpb\').textContent=\'Copy\'},1500)" class="cpb" style="background:#eee;border:1px solid #ccc;border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;color:#555">Copy</button></div></div>'+
     '<div class="fd"><div class="fl">Device Name</div><div class="fv"><strong>'+nm+'</strong></div></div>'+
     '<div class="fd"><div class="fl">Company</div><div class="fv">'+co+'</div></div>'+
     (desc?'<div class="fd"><div class="fl">Description</div><div class="fv" style="font-size:12px;color:#555;line-height:1.5">'+desc+'</div></div>':'')+
     '<div class="fd"><div class="fl">Decision Date</div><div class="fv">'+n[1]+'</div></div>'+
     '<div class="fd"><div class="fl">FDA Pathway</div><div class="fv">'+FN[n[3]]+'</div></div>'+
     '<div class="fd"><div class="fl">Predicate Provenance</div><div class="fv"><span class="pv" style="background:'+PC[n[4]]+'22;color:'+PC[n[4]]+'">'+PN[n[4]]+'</span></div></div>'+
-    '<div class="fd"><div class="fl">'+(isAllView?'Specialty':'Subspecialty')+'</div><div class="fv">'+(n[5]||'\u2014')+'</div></div>'+
+    '<div class="fd"><div class="fl">'+(isAllView?'Lead Specialty':'Subspecialty')+'</div><div class="fv">'+(n[5]||'\u2014')+'</div></div>'+
     '<div style="height:1px;background:#e0e0e0;margin:14px 0"></div>'+
     '<div class="fd"><div class="fl">Predicate Device</div><div class="fv">'+predHtml+'</div></div>'+
     '<div class="fd"><div class="fl">Predicate For</div><div class="fv">'+depsHtml+'</div></div>'+
-    (url?'<div style="margin-top:14px"><a href="'+url+'" target="_blank" style="color:#2563eb;text-decoration:none;font-size:13px">View FDA Clearance Summary \u2192</a></div>':'');
+    '<div style="height:1px;background:#e0e0e0;margin:10px 0"></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+
+    (url?'<a href="'+url+'" target="_blank" style="background:#2563eb;color:#fff;text-decoration:none;font-size:11px;padding:5px 12px;border-radius:4px;font-weight:500">FDA Summary \u2192</a>':'')+
+    '<button onclick="centerNet(\''+id+'\')" style="background:#eee;border:1px solid #ccc;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:500">Center Network</button>'+
+    '</div>';
 }
 function search(){
   var q=document.getElementById('q').value.trim();if(!q)return;
@@ -551,6 +634,22 @@ function clr(){hlSet=null;selKey=null;document.getElementById('q').value='';docu
 function clickDev(id){
   var f=fNodes.find(function(n){return n[0]===id});
   if(f){hlN(f[0]);selKey=f[0];showDet(f);var p=posMap.get(f[0]);if(p){tx.x=cv.clientWidth/2-p.x*tx.s;tx.y=cv.clientHeight/2-p.y*tx.s}draw()}
+}
+function centerNet(id){
+  // Fit the highlighted network into view
+  if(!hlSet||!hlSet.size)return;
+  var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  hlSet.forEach(function(nid){
+    var p=posMap.get(nid);if(!p)return;
+    if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;if(p.y<y0)y0=p.y;if(p.y>y1)y1=p.y;
+  });
+  var cw=cv.clientWidth,ch=cv.clientHeight;
+  var dw=(x1-x0)||1,dh=(y1-y0)||1;
+  var padL=60,padR=30,padT=20,padB=20;
+  tx.s=Math.min((cw-padL-padR)/dw,(ch-padT-padB)/dh)*0.85;
+  tx.x=padL+(cw-padL-padR-dw*tx.s)/2-x0*tx.s;
+  tx.y=padT+(ch-padT-padB-dh*tx.s)/2-y0*tx.s;
+  draw();
 }
 function showAC(q){
   var ac=document.getElementById('ac');
