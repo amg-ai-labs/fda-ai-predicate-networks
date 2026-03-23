@@ -37,7 +37,7 @@ canvas{display:block;cursor:grab}canvas:active{cursor:grabbing}
 .hn{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--t2);background:rgba(255,255,255,.85);padding:2px 9px;border-radius:10px;border:1px solid var(--bd);pointer-events:none}
 
 /* LEGEND - right side, vertically centred like Dash/Muehlematter */
-.lg{position:absolute;top:50%;right:14px;transform:translateY(-50%);background:rgba(255,255,255,.92);backdrop-filter:blur(4px);border:1px solid var(--bd);border-radius:6px;padding:10px 14px;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);z-index:5}
+.lg{position:absolute;bottom:50px;right:14px;background:rgba(255,255,255,.92);backdrop-filter:blur(4px);border:1px solid var(--bd);border-radius:6px;padding:10px 14px;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);z-index:5}
 .lg h4{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);margin-bottom:5px;font-weight:700}
 .li{display:flex;align-items:center;gap:6px;margin:3px 0;color:#444;font-size:11px}
 .ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.25)}
@@ -61,18 +61,19 @@ canvas{display:block;cursor:grab}canvas:active{cursor:grabbing}
 .tt b{font-weight:600}.tt small{color:var(--t2);font-family:var(--mn)}
 
 /* INFO SECTION - dark panel like Dash app */
-.nf{background:var(--dk);padding:36px 32px}
-.nfc{max-width:900px;margin:0 auto}
-.nf h2{font-size:17px;font-weight:700;margin-bottom:14px;color:#fff}
-.nf p{font-size:14px;line-height:1.75;color:#d0d4e0;margin-bottom:10px}
+.nf{background:var(--dk);padding:44px 40px}
+.nfc{max-width:1100px;margin:0 auto}
+.nf h2{font-size:20px;font-weight:700;margin-bottom:16px;color:#fff}
+.nf h3{font-size:16px;font-weight:600;margin:22px 0 10px;color:var(--ac)}
+.nf p{font-size:15px;line-height:1.8;color:#d0d4e0;margin-bottom:12px}
 .nf a{color:var(--ac);text-decoration:underline}
 .nf strong{color:#fff}
-.nf ol{font-size:14px;line-height:1.75;color:#d0d4e0;padding-left:22px;margin-bottom:14px}
-.nf ol li{margin-bottom:4px}
-.tm{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-.tr{position:relative;background:var(--dk2);border:1px solid var(--bd2);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--ac);cursor:help;font-weight:500}
+.nf ol,.nf ul{font-size:15px;line-height:1.8;color:#d0d4e0;padding-left:24px;margin-bottom:14px}
+.nf ol li,.nf ul li{margin-bottom:5px}
+.tm{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}
+.tr{position:relative;background:var(--dk2);border:1px solid var(--bd2);border-radius:4px;padding:5px 12px;font-size:12px;color:var(--ac);cursor:help;font-weight:500}
 .tr:hover .df{display:block}
-.df{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#373d5c;border:1px solid #4a5080;border-radius:5px;padding:8px 12px;font-size:11px;color:#d0d4e0;width:230px;box-shadow:0 3px 10px rgba(0,0,0,.3);font-weight:400;z-index:10}
+.df{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#373d5c;border:1px solid #4a5080;border-radius:5px;padding:9px 13px;font-size:12px;color:#d0d4e0;width:250px;box-shadow:0 3px 10px rgba(0,0,0,.3);font-weight:400;z-index:10}
 footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-size:12px;border-top:1px solid var(--bd2)}
 </style>
 </head>
@@ -109,26 +110,52 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
 </div>
 <div class="nf"><div class="nfc">
   <h2>About This Dashboard</h2>
-  <p>This graph visualises predicate relationships among <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-enabled-medical-devices" target="_blank">FDA-approved AI/ML-enabled medical devices</a>. The FDA database is periodically updated.</p>
-  <p>The FDA uses three main regulatory pathways to approve AI-enabled medical devices:</p>
+  <p>This interactive tool maps the regulatory relationships between <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-enabled-medical-devices" target="_blank">FDA-approved AI/ML-enabled medical devices</a>. It reveals how each device gained market clearance and which earlier devices it relied upon &mdash; making the often opaque regulatory pathway visible and explorable.</p>
+
+  <h3>Why does this matter?</h3>
+  <p>The vast majority of AI medical devices reach the market through the <strong>510(k) pathway</strong>, which requires manufacturers to demonstrate that their device is &ldquo;substantially equivalent&rdquo; to a previously approved device called a <strong>predicate</strong>. This means a new AI diagnostic tool might be cleared not on the basis of its own clinical trials, but because it is deemed similar enough to an older device &mdash; which may itself not even be an AI device. Understanding these chains of equivalence is critical for clinicians, researchers, regulators, and patients who want to know: <em>what evidence actually underpins this device&rsquo;s approval?</em></p>
+
+  <h3>How the FDA approves AI devices</h3>
+  <p>The FDA uses three main regulatory pathways:</p>
   <ol>
-    <li><strong>Premarket Approval (PMA)</strong> &mdash; rigorous review for high-risk devices, requires clinical evidence</li>
-    <li><strong>De Novo Classification</strong> &mdash; for first-of-a-kind, low/moderate-risk devices without a predicate</li>
-    <li><strong>510(k) Premarket Clearance</strong> &mdash; the most common pathway, based on substantial equivalence to a previously approved device (the predicate)</li>
+    <li><strong>510(k) Premarket Clearance</strong> &mdash; the most common route (~97% of AI devices). The manufacturer demonstrates substantial equivalence to a predicate device. Does not necessarily require new clinical trials.</li>
+    <li><strong>De Novo Classification</strong> &mdash; for novel, low-to-moderate risk devices with no suitable predicate. Requires more evidence than 510(k) but less than PMA. Once granted, the device itself becomes a predicate for future 510(k) submissions.</li>
+    <li><strong>Premarket Approval (PMA)</strong> &mdash; the most rigorous pathway, reserved for high-risk devices. Requires clinical evidence of safety and effectiveness. Rare for AI devices.</li>
   </ol>
-  <p>Devices can be filtered by specialty, pathway, and subspecialty. Search for a specific device by its FDA submission number to isolate and highlight its predicate network. Click any device in the graph for detailed information including a link to the official clearance summary.</p>
-  <p>Lines between devices represent predicate relationships &mdash; where one device was cleared based on equivalence to another. The colour of each device indicates its <strong>predicate provenance</strong>: whether the predicate is an AI device within the same specialty (green), an AI device from a different specialty (blue), a non-AI device outside the FDA AI/ML database (terracotta), or whether no predicate exists as in De Novo approvals (gold).</p>
-  <p>We aim to regularly update these graphs with more specialties, features and up-to-date devices.</p>
-  <p style="color:#9aa0b0;font-style:italic;font-size:11px;margin-top:14px">Hover over terms below for definitions:</p>
+
+  <h3>How to read the graph</h3>
+  <ul>
+    <li><strong>Each dot</strong> represents a single FDA-approved AI/ML medical device.</li>
+    <li><strong>Vertical position</strong> shows the date of approval &mdash; oldest devices at the bottom, newest at the top.</li>
+    <li><strong>Lines between dots</strong> show predicate relationships &mdash; a line connects a device to the older device it was cleared against. These form tree-like structures where one early approval cascades into many later ones.</li>
+    <li><strong>Dot colour</strong> indicates <strong>predicate provenance</strong> &mdash; whether the device&rsquo;s predicate is another AI device (green), a non-AI device outside the FDA AI/ML database (terracotta), or whether no predicate exists as with De Novo approvals (gold). When viewing individual specialties, AI predicates are further split into same-specialty (green) and other-specialty (blue).</li>
+    <li><strong>Dot shape</strong> indicates the FDA pathway &mdash; circles for 510(k), triangles for De Novo, diamonds for Premarket Approval.</li>
+    <li><strong>Isolated dots</strong> (no lines) are devices whose predicates are not in the database, or De Novo devices that have not yet been used as predicates themselves.</li>
+  </ul>
+
+  <h3>How to use the dashboard</h3>
+  <ul>
+    <li><strong>Select a specialty</strong> from the dropdown to view devices in Surgery, Cardiology, Neurology, or all specialties combined.</li>
+    <li><strong>Filter by pathway</strong> to isolate 510(k), De Novo, or Premarket devices.</li>
+    <li><strong>Search</strong> by device name or FDA submission number (e.g. K231335) &mdash; matching devices appear as you type.</li>
+    <li><strong>Click any device</strong> to highlight its full predicate network and view detailed information in the side panel, including its predicate, how many devices depend on it, and a link to the official FDA clearance summary.</li>
+    <li><strong>Click empty space</strong> to reset the view. Pinch or Ctrl+scroll to zoom. Drag to pan.</li>
+  </ul>
+
+  <h3>Key observations</h3>
+  <p>A significant proportion of AI devices cite non-AI predicates (terracotta dots), meaning their regulatory clearance is based on equivalence to devices that predate the AI era entirely. The tree structures reveal how a single early approval &mdash; such as a De Novo classification &mdash; can become the regulatory foundation for dozens of subsequent devices across multiple companies and clinical applications.</p>
+
+  <p>We aim to regularly update these graphs with more specialties, features, and up-to-date devices. The FDA AI/ML database is periodically updated.</p>
+
+  <p style="color:#7a8098;font-style:italic;font-size:12px;margin-top:20px">Hover over terms below for definitions:</p>
   <div class="tm">
-    <div class="tr">Predicate Device<div class="df">A previously approved device used to support a new submission's safety and effectiveness through the 510(k) pathway.</div></div>
-    <div class="tr">Predicate Network<div class="df">A visual map of how devices are connected by their predicate approvals, showing chains of regulatory equivalence.</div></div>
-    <div class="tr">Graph Lines<div class="df">Vertical links between a device and its predicate. Devices sharing a common ancestor form visible tree structures.</div></div>
-    <div class="tr">Vertical Axis<div class="df">Shows approval date &mdash; oldest devices at the bottom, most recent at the top.</div></div>
-    <div class="tr">Horizontal Axis<div class="df">Devices are grouped by predicate tree. Larger, more connected trees appear towards the centre.</div></div>
-    <div class="tr">Submission Number<div class="df">A unique FDA identifier for each device application (e.g. K231335, DEN170073).</div></div>
-    <div class="tr">Product Code<div class="df">FDA-assigned classification code indicating the device's intended use and technology type.</div></div>
-    <div class="tr">Predicate Provenance<div class="df">Classification of where a device's predicate sits: within the same specialty's AI devices, in another specialty, outside the AI/ML database entirely, or absent (De Novo).</div></div>
+    <div class="tr">Predicate Device<div class="df">A previously approved device cited as the basis for a new 510(k) submission. The new device must be &ldquo;substantially equivalent&rdquo; to its predicate in intended use and technology.</div></div>
+    <div class="tr">Predicate Network<div class="df">The full chain of devices connected through predicate relationships. Clicking a device highlights every device in its network &mdash; both ancestors (what it was cleared against) and descendants (what was cleared against it).</div></div>
+    <div class="tr">Predicate Provenance<div class="df">Classifies where a device's predicate sits: within the AI/ML database (AI device), outside it (non-AI device), or absent entirely (De Novo / no predicate). This reveals whether AI devices are being cleared against other AI devices or against older, non-AI technology.</div></div>
+    <div class="tr">510(k)<div class="df">The most common FDA pathway for AI devices. Based on demonstrating &ldquo;substantial equivalence&rdquo; to a predicate device. Does not inherently require new clinical trials, though the FDA may request additional data.</div></div>
+    <div class="tr">De Novo<div class="df">A pathway for novel devices with no suitable predicate. Requires a risk-based assessment. Once approved, the device creates a new regulatory category and can serve as a predicate for future 510(k) submissions.</div></div>
+    <div class="tr">Submission Number<div class="df">A unique FDA identifier for each device application. 510(k) numbers start with &ldquo;K&rdquo; (e.g. K231335), De Novo with &ldquo;DEN&rdquo; (e.g. DEN170073), and PMA with &ldquo;P&rdquo;.</div></div>
+    <div class="tr">Substantial Equivalence<div class="df">The legal standard for 510(k) clearance. A device is substantially equivalent if it has the same intended use and either the same technological characteristics, or different characteristics that do not raise new safety or effectiveness questions.</div></div>
   </div>
 </div></div>
 <footer>&copy; 2025 amg-ai-labs</footer>
@@ -176,7 +203,7 @@ function init(){
   resize();loadSpec(ordered[0]);
 }
 
-function resize(){if(!cv)return;var w=cv.parentElement,d=devicePixelRatio||1;cv.width=w.clientWidth*d;cv.height=w.clientHeight*d;cv.style.width=w.clientWidth+'px';cv.style.height=w.clientHeight+'px';cx.setTransform(d,0,0,d,0,0);draw()}
+function resize(){if(!cv)return;var w=cv.parentElement,d=devicePixelRatio||1;cv.width=w.clientWidth*d;cv.height=w.clientHeight*d;cv.style.width=w.clientWidth+'px';cv.style.height=w.clientHeight+'px';cx.setTransform(d,0,0,d,0,0);if(fNodes.length){treeLayout();fit()}else{draw()}}
 
 function loadSpec(s){
   spec=s;var d=D[s];nodes=d.g.n;edges=d.g.e;det=d.d;
@@ -261,16 +288,18 @@ function treeLayout(){
     components.push(comp);
   });
 
-  // Sort: largest components in the centre
-  components.sort(function(a,b){return b.length-a.length});
+  // Separate connected components (2+ nodes) from isolated nodes (1 node)
+  var connected=components.filter(function(c){return c.length>1});
+  var isolated=components.filter(function(c){return c.length===1});
 
-  // Interleave: place largest first (centre), then alternate left/right
+  // Sort connected by size, place largest in centre
+  connected.sort(function(a,b){return b.length-a.length});
   var ordered=[];
   var left=[],right=[];
-  for(var i=0;i<components.length;i++){
-    if(i===0)ordered.push(components[i]);
-    else if(i%2===1)left.push(components[i]);
-    else right.push(components[i]);
+  for(var i=0;i<connected.length;i++){
+    if(i===0)ordered.push(connected[i]);
+    else if(i%2===1)left.push(connected[i]);
+    else right.push(connected[i]);
   }
   ordered=left.reverse().concat(ordered).concat(right);
 
@@ -278,72 +307,86 @@ function treeLayout(){
   var minD=Infinity,maxD=-Infinity;
   fNodes.forEach(function(n){var t=new Date(n[1]).getTime();if(t<minD)minD=t;if(t>maxD)maxD=t});
   var dr=maxD-minD||1;
-  var totalH=Math.max(1100,fNodes.length*6);
 
-  // Layout each component as a tree
-  var xCursor=100; // left margin for year labels
-  var xGap=10; // gap between components
+  // Adaptive spacing based on node count
+  var nodeCount=fNodes.length;
+  var leafPx=nodeCount>500?14:nodeCount>300?17:20;
+  var compGap=nodeCount>500?7:nodeCount>300?9:11;
+  var xCursor=100;
+  var xGap=compGap;
 
+  // First pass: compute X positions for connected components only
+  var compXPositions=[]; // [{comp, nodeX}]
   ordered.forEach(function(comp){
-    // Find root(s) of this component: nodes with no parent in the component
     var compSet=new Set(comp);
     var roots=comp.filter(function(id){return!parentOf[id]||!compSet.has(parentOf[id])});
     if(roots.length===0)roots=[comp[0]];
 
-    // For each root, compute subtree width (number of leaves)
     function subtreeWidth(id){
       var ch=(childrenOf[id]||[]).filter(function(c){return compSet.has(c)});
       if(ch.length===0)return 1;
       var w=0;ch.forEach(function(c){w+=subtreeWidth(c)});return w;
     }
 
-    // Layout tree: assign x positions based on subtree width
     var nodeX={};
     function layoutTree(id,xStart,xEnd){
       var ch=(childrenOf[id]||[]).filter(function(c){return compSet.has(c)});
-      if(ch.length===0){
-        nodeX[id]=(xStart+xEnd)/2;return;
-      }
+      if(ch.length===0){nodeX[id]=(xStart+xEnd)/2;return}
       var totalW=0;var widths=[];
       ch.forEach(function(c){var w=subtreeWidth(c);widths.push(w);totalW+=w});
       var cx=xStart;
       for(var i=0;i<ch.length;i++){
         var cw=((xEnd-xStart)*widths[i]/totalW);
-        layoutTree(ch[i],cx,cx+cw);
-        cx+=cw;
+        layoutTree(ch[i],cx,cx+cw);cx+=cw;
       }
-      // Parent centred above children
       var childXs=ch.map(function(c){return nodeX[c]});
       nodeX[id]=(Math.min.apply(null,childXs)+Math.max.apply(null,childXs))/2;
     }
 
     var compWidth=0;
     roots.forEach(function(r){compWidth+=subtreeWidth(r)});
-    var pixelWidth=Math.max(compWidth*18,20);
+    var pixelWidth=Math.max(compWidth*leafPx,16);
 
     var rx=xCursor;
     roots.forEach(function(r){
       var rw=subtreeWidth(r);
       var rpx=(pixelWidth*rw/compWidth);
-      layoutTree(r,rx,rx+rpx);
-      rx+=rpx;
+      layoutTree(r,rx,rx+rpx);rx+=rpx;
     });
-
-    // Any nodes in comp not yet positioned (isolated within comp)
-    comp.forEach(function(id){
-      if(nodeX[id]===undefined)nodeX[id]=xCursor+pixelWidth/2;
-    });
-
+    comp.forEach(function(id){if(nodeX[id]===undefined)nodeX[id]=xCursor+pixelWidth/2});
     xCursor+=pixelWidth+xGap;
+    compXPositions.push({comp:comp,nodeX:nodeX});
+  });
 
-    // Set positions: x from tree layout, y from date (oldest at BOTTOM)
-    comp.forEach(function(id){
+  // Compute totalH based on total width and canvas aspect ratio
+  var totalWidth=xCursor-100;
+  var canvasAR=cv?cv.clientWidth/Math.max(cv.clientHeight,1):1.6;
+  var totalH=Math.max(500,totalWidth/canvasAR);
+
+  // Second pass: assign Y positions for connected components
+  compXPositions.forEach(function(item){
+    item.comp.forEach(function(id){
       var n=nodeMap[id];if(!n)return;
       var t=new Date(n[1]).getTime();
-      var y=totalH-40-((t-minD)/dr)*(totalH-80); // invert: oldest at bottom
-      posMap.set(id,{x:nodeX[id],y:y,n:n});
+      var y=totalH-40-((t-minD)/dr)*(totalH-80);
+      posMap.set(id,{x:item.nodeX[id],y:y,n:n});
     });
   });
+
+  // Spread isolated nodes evenly across the connected component width
+  if(isolated.length>0){
+    var isoWidth=Math.max(totalWidth,400);
+    var isoSpacing=isoWidth/(isolated.length+1);
+    isolated.forEach(function(comp,i){
+      var id=comp[0];
+      var n=nodeMap[id];if(!n)return;
+      var t=new Date(n[1]).getTime();
+      var y=totalH-40-((t-minD)/dr)*(totalH-80);
+      var jitter=((id.charCodeAt(1)||0)%9-4)*1.5;
+      var x=100+isoSpacing*(i+1)+jitter;
+      posMap.set(id,{x:x,y:y,n:n});
+    });
+  }
 }
 
 function fit(){
@@ -351,7 +394,7 @@ function fit(){
   var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
   posMap.forEach(function(p){if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;if(p.y<y0)y0=p.y;if(p.y>y1)y1=p.y});
   var cw=cv.clientWidth,ch=cv.clientHeight;
-  var padL=55,padR=10,padT=10,padB=10;
+  var padL=75,padR=35,padT=25,padB=55;
   var dw=(x1-x0)||1,dh=(y1-y0)||1;
   tx.s=Math.min((cw-padL-padR)/dw,(ch-padT-padB)/dh);
   tx.x=padL+(cw-padL-padR-dw*tx.s)/2-x0*tx.s;
@@ -367,12 +410,13 @@ function draw(){
   if(fNodes.length>1){
     var allTs=fNodes.map(function(n){return new Date(n[1]).getTime()});
     var minTs=Math.min.apply(null,allTs),maxTs=Math.max.apply(null,allTs),rng=maxTs-minTs||1;
-    var minYr=new Date(minTs).getFullYear(),maxYr=new Date(maxTs).getFullYear();
-    var totalH=Math.max(1100,fNodes.length*6);
-
-    // Find world x bounds for gridlines
+    var minYr=new Date(minTs).getFullYear(),maxYr=new Date(maxTs).getFullYear()+1;
+    // Compute totalH matching the layout formula
     var wx0=Infinity,wx1=-Infinity;
     posMap.forEach(function(p){if(p.x<wx0)wx0=p.x;if(p.x>wx1)wx1=p.x});
+    var layoutWidth=wx1-wx0||1;
+    var canvasAR=cw/Math.max(ch,1);
+    var totalH=Math.max(500,layoutWidth/canvasAR);
 
     for(var yr=minYr;yr<=maxYr;yr++){
       var tJan=new Date(yr,0,1).getTime();
@@ -389,7 +433,7 @@ function draw(){
       cx.fillText(yr.toString(),Math.max(42,scrX0-10),scrY+5);
     }
 
-    // Y-axis title - rotated vertically on the left edge
+    // Y-axis title
     cx.save();
     cx.fillStyle='rgba(30,30,40,.4)';
     cx.font='600 11px "DM Sans"';
@@ -398,23 +442,31 @@ function draw(){
     cx.rotate(-Math.PI/2);
     cx.fillText('Date of Approval',0,0);
     cx.restore();
+
+    // X-axis title - above the hint bar
+    cx.fillStyle='rgba(30,30,40,.4)';
+    cx.font='600 11px "DM Sans"';
+    cx.textAlign='center';
+    cx.fillText('Medical devices',cw/2,ch-32);
   }
 
   cx.save();cx.translate(tx.x,tx.y);cx.scale(tx.s,tx.s);
 
   // Edges - solid grey lines (Muehlematter style)
+  // Thinner for dense views
+  var dense=fNodes.length>400;
   fEdges.forEach(function(e){
     var s=posMap.get(e[0]),t=posMap.get(e[1]);if(!s||!t)return;
     var hl=hlSet&&hlSet.has(e[0])&&hlSet.has(e[1]);
-    var a=hlSet?(hl?.85:.04):.55;
-    var w=hlSet?(hl?2.2:.4):1.1;
+    var a=hlSet?(hl?.85:.04):(dense?.4:.55);
+    var w=hlSet?(hl?2.2:.3):(dense?.8:1.1);
     cx.strokeStyle=rgba(hlSet&&hl?PC[e[2]]:'#7a7f90',a);cx.lineWidth=w/tx.s;
     cx.beginPath();cx.moveTo(s.x,s.y);cx.lineTo(t.x,t.y);cx.stroke();
   });
 
-  // Nodes - small with solid dark outline (Muehlematter style)
-  var r=Math.max(2.8,4/tx.s);
-  var outlineW=Math.max(.8,1.1/tx.s);
+  // Nodes - adaptive size with solid dark outline
+  var r=dense?Math.max(2.5,3.5/tx.s):Math.max(2.8,4/tx.s);
+  var outlineW=dense?Math.max(.5,.7/tx.s):Math.max(.8,1.1/tx.s);
   posMap.forEach(function(p,id){
     var n=p.n,hl=hlSet?hlSet.has(id):true,a=hlSet?(hl?1:.08):1;
     cx.fillStyle=rgba(PC[n[4]],a);cx.strokeStyle=rgba('#3d4255',hlSet?(hl?.7:.05):.5);cx.lineWidth=outlineW;
@@ -433,7 +485,7 @@ function s2w(sx,sy){return{x:(sx-tx.x)/tx.s,y:(sy-tx.y)/tx.s}}
 function findAt(sx,sy){var w=s2w(sx,sy),rr=Math.max(49,(10/tx.s)*(10/tx.s)),best=null,bd=rr;posMap.forEach(function(p,id){var d=(p.x-w.x)*(p.x-w.x)+(p.y-w.y)*(p.y-w.y);if(d<bd){bd=d;best=id}});return best}
 function onW(e){if(!e.ctrlKey)return;e.preventDefault();var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.12:1/1.12,ns=Math.max(.02,Math.min(30,tx.s*f));tx.x=mx-(mx-tx.x)*(ns/tx.s);tx.y=my-(my-tx.y)*(ns/tx.s);tx.s=ns;draw()}
 function onM(e){var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;if(drag){tx.x=e.clientX-ds.x;tx.y=e.clientY-ds.y;draw();return}var f=findAt(mx,my);if(f!==hov){hov=f;cv.style.cursor=f?'pointer':'grab';draw();var tt=document.getElementById('tt');if(f){var p=posMap.get(f),d=det[f],nm=d?d[0]:f;tt.innerHTML='<b>'+nm+'</b><br><small>'+f+'</small> \u00b7 '+p.n[1]+' \u00b7 '+FN[p.n[3]];tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-8)+'px'}else tt.style.display='none'}else if(f){var tt2=document.getElementById('tt');tt2.style.left=(e.clientX+12)+'px';tt2.style.top=(e.clientY-8)+'px'}}
-function onC(e){var r=cv.getBoundingClientRect(),f=findAt(e.clientX-r.left,e.clientY-r.top);if(!f)return;selKey=f;var p=posMap.get(f);showDet(p.n);hlN(f);draw()}
+function onC(e){var r=cv.getBoundingClientRect(),f=findAt(e.clientX-r.left,e.clientY-r.top);if(!f){if(hlSet){hlSet=null;selKey=null;document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';document.getElementById('side').classList.add('cl');setTimeout(resize,50)}return}selKey=f;var p=posMap.get(f);showDet(p.n);hlN(f);draw()}
 function hlN(id){var ad={};fEdges.forEach(function(e){if(!ad[e[0]])ad[e[0]]=[];if(!ad[e[1]])ad[e[1]]=[];ad[e[0]].push(e[1]);ad[e[1]].push(e[0])});var vis=new Set(),q=[id];while(q.length){var c=q.shift();if(vis.has(c))continue;vis.add(c);(ad[c]||[]).forEach(function(n){if(!vis.has(n))q.push(n)})}hlSet=vis}
 function showDet(n){
   var sd=document.getElementById('side');sd.classList.remove('cl');setTimeout(resize,50);
