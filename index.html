@@ -454,27 +454,23 @@ function treeLayout(){
     });
   });
 
-  // Shuffle and spread isolated nodes to avoid visible specialty-based patterns
+  // Distribute isolated nodes randomly across the graph
+  // Use splitmix32-style hash to get truly uniform x-positions from submission IDs
   if(isolated.length>0){
-    // Deterministic shuffle based on submission number hash to break ordering
-    var shuffled=isolated.slice();
-    shuffled.sort(function(a,b){
-      var ha=0,hb=0;
-      for(var i=0;i<a[0].length;i++)ha=(ha*31+a[0].charCodeAt(i))&0x7FFFFFFF;
-      for(var i=0;i<b[0].length;i++)hb=(hb*31+b[0].charCodeAt(i))&0x7FFFFFFF;
-      return ha-hb;
-    });
     var isoWidth=Math.max(totalWidth,400);
-    var isoSpacing=isoWidth/(shuffled.length+1);
-    shuffled.forEach(function(comp,i){
+    var xMin=160,xMax=160+isoWidth;
+    function smHash(str){
+      var h=0x9e3779b9;
+      for(var i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),0x85ebca6b);h=h^(h>>>13);h=Math.imul(h,0xc2b2ae35);h=h^(h>>>16)}
+      return(h>>>0)/4294967296; // return 0-1
+    }
+    isolated.forEach(function(comp){
       var id=comp[0];
       var n=nodeMap[id];if(!n)return;
       var t=new Date(n[1]).getTime();
       var y=totalH-40-((t-minD)/dr)*(totalH-80);
-      // Stronger jitter using hash of full ID
-      var hash=0;for(var j=0;j<id.length;j++)hash=(hash*17+id.charCodeAt(j))&0xFFFF;
-      var jitter=((hash%20)-10)*1.2;
-      var x=160+isoSpacing*(i+1)+jitter;
+      var frac=smHash(id);
+      var x=xMin+frac*(xMax-xMin);
       posMap.set(id,{x:x,y:y,n:n});
     });
   }
