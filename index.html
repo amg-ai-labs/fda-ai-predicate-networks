@@ -109,7 +109,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     </div>
     <div class="ob-step">
       <div class="ob-num">3</div>
-      <div class="ob-txt"><b>Colours show predicate provenance.</b> <span style="color:#81b29a">&bull;</span> Green = AI predicate. <span style="color:#e07a5f">&bull;</span> Terracotta = non-AI predicate. <span style="color:#e0b44a">&bull;</span> Gold = no predicate (De Novo or PMA). <span style="color:#7fa8c9">&bull;</span> Blue = other-specialty AI, shown in the specialty datasets only.</div>
+      <div class="ob-txt"><b>Colours show predicate provenance.</b> <span style="color:#009E73">&bull;</span> Green = AI predicate. <span style="color:#D55E00">&bull;</span> Vermillion = non-AI predicate. <span style="color:#E69F00">&bull;</span> Amber = no predicate (De Novo or PMA). <span style="color:#0072B2">&bull;</span> Blue = other-specialty AI, shown in the specialty datasets only.</div>
     </div>
     <div class="ob-step">
       <div class="ob-num">4</div>
@@ -144,10 +144,10 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     <canvas id="c"></canvas>
     <div class="lg" id="legend">
       <h4>Predicate Provenance</h4>
-      <div class="li"><div class="ld" style="background:#81b29a"></div>Same-specialty AI</div>
-      <div class="li"><div class="ld" style="background:#7fa8c9"></div>Other-specialty AI</div>
-      <div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>
-      <div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>
+      <div class="li"><div class="ld" style="background:#009E73"></div>Same-specialty AI</div>
+      <div class="li"><div class="ld" style="background:#0072B2"></div>Other-specialty AI</div>
+      <div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>
+      <div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>
       <div class="lp"></div>
       <h4>FDA Pathway</h4>
       <div class="li"><div class="ld" style="background:#888"></div>510(k)</div>
@@ -187,7 +187,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
   <p>Both filters are available in the dashboard, and the device detail panel displays both classifications for each individual device. In the complete database view, devices that have not yet been mapped to one of our specialties can be isolated using the <em>Not mapped</em> option.</p>
 
   <h3>Key observations</h3>
-  <p>Across the complete database, <strong>522 devices (36.5%) are classified as citing a non-AI predicate</strong> (terracotta dots), meaning their regulatory clearance rests on equivalence to a device that sits outside the recognised AI/ML landscape. A further 3.8% entered without a predicate at all, through the De Novo or Premarket Approval pathways.</p>
+  <p>Across the complete database, <strong>522 devices (36.5%) are classified as citing a non-AI predicate</strong> (vermillion dots), meaning their regulatory clearance rests on equivalence to a device that sits outside the recognised AI/ML landscape. A further 3.8% entered without a predicate at all, through the De Novo or Premarket Approval pathways.</p>
   <p>The network is highly concentrated. 59 devices each serve as the predicate for three or more subsequent approvals, and the largest single family traces back to ContaCT (DEN170073), which anchors 116 downstream devices across multiple manufacturers and clinical applications. The tree structures show how one early approval, often a De Novo classification, can become the regulatory foundation for dozens of later devices. Predicate chains reach 8 generations deep, while 356 devices sit in isolation with no predicate link to any other device in the database.</p>
 
   <p>We aim to regularly update the dashboard with additional specialties, features, and up-to-date devices as the FDA AI/ML database is periodically updated.</p>
@@ -209,11 +209,16 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
 <div class="tt" id="tt" style="display:none"></div>
 
 <script>
+// Okabe-Ito, the standard colourblind-safe palette for scientific figures.
+// The previous soft green and terracotta separated by only dE 7.7 under
+// deuteranopia, which put the dashboard's central distinction, AI versus
+// non-AI predicate, out of reach for roughly 1 in 12 men. These four clear
+// every check in the validator, including all-pairs separation.
 // Specialty view: 0=Non-AI, 1=Same-spec AI, 2=Other-spec AI, 3=No predicate
-var PC_SPEC=['#e07a5f','#81b29a','#7fa8c9','#e0b44a'];
+var PC_SPEC=['#D55E00','#009E73','#0072B2','#E69F00'];
 var PN_SPEC=['Non AI device','Specialty AI device','Other AI device','No predicate'];
 // All view: 0=Non-AI, 1=AI device, 2=No predicate
-var PC_ALL=['#e07a5f','#81b29a','#e0b44a'];
+var PC_ALL=['#D55E00','#009E73','#E69F00'];
 var PN_ALL=['Non AI device','AI device','No predicate'];
 // Active palette (set on loadSpec)
 var PC=PC_SPEC,PN=PN_SPEC;
@@ -226,6 +231,43 @@ let cv,cx,tx={x:0,y:0,s:1},baseTx=null,drag=false,ds={x:0,y:0},hov=null,posMap=n
 // Vertical extent of the current layout, shared so the year axis and the nodes
 // are derived from the same number rather than two similar ones.
 let layoutH=0;
+
+// Density-weighted year scale. A purely linear time axis spends 45% of its
+// height on 1995-2015, which holds 42 of 1,430 devices, and drags the long
+// legacy edges across that void as stray diagonals. Each year instead gets a
+// slice that grows with the log of its device count: sparse years stay visible
+// but thin, busy years get room to separate, and the compression is gentle
+// enough that 2014 onwards still reads as an almost even axis. The scale stays
+// monotone in date and every band keeps its own labelled gridline, so nothing
+// is hidden; the uneven gaps are themselves the density signal.
+function yrWeight(c){return 1+6*Math.log(1+c)}
+// The layout is a little flatter than the canvas so predicate links stay short
+// enough to read as links rather than as full-height rules.
+var LAYOUT_H=0.85;
+let yScale=null;
+function buildYScale(){
+  var counts={},minY=Infinity,maxY=-Infinity;
+  nodes.forEach(function(n){
+    var y=parseInt(n[1].substring(0,4));if(isNaN(y))return;
+    counts[y]=(counts[y]||0)+1;if(y<minY)minY=y;if(y>maxY)maxY=y;
+  });
+  if(minY===Infinity){yScale=null;return}
+  maxY+=1; // the axis runs to the January after the last approval
+  var cum={},total=0;
+  for(var y=minY;y<=maxY;y++){cum[y]=total;total+=yrWeight(counts[y]||0)}
+  yScale={minY:minY,maxY:maxY,counts:counts,cum:cum,total:total||1};
+}
+// Position of a timestamp as a 0-1 fraction of the axis, oldest at 0.
+function tFrac(ms){
+  if(!yScale)return 0;
+  var d=new Date(ms),y=d.getFullYear();
+  if(y<yScale.minY)return 0;
+  if(y>=yScale.maxY)return 1;
+  var y0=new Date(y,0,1).getTime(),y1=new Date(y+1,0,1).getTime();
+  var w=yrWeight(yScale.counts[y]||0);
+  return(yScale.cum[y]+((ms-y0)/(y1-y0))*w)/yScale.total;
+}
+function yOf(ms,totalH){return totalH-40-tFrac(ms)*(totalH-80)}
 
 function init(){
   cv=document.getElementById('c');cx=cv.getContext('2d');
@@ -302,7 +344,7 @@ function loadSpec(s){
   lspec.innerHTML='<option value="all">All</option>';
   var ls=d.g.ls||[];
   ls.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;lspec.appendChild(o)});
-  var st=d.g.st;
+  buildYScale();
   hlSet=null;selKey=null;document.getElementById('q').value='';
   document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';
   updateStats();
@@ -398,14 +440,14 @@ function updateLegend(){
   var lg=document.getElementById('legend');
   var h='<h4>Predicate Provenance</h4>';
   if(isAllView){
-    h+='<div class="li"><div class="ld" style="background:#81b29a"></div>AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>';
+    h+='<div class="li"><div class="ld" style="background:#009E73"></div>AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>';
   }else{
-    h+='<div class="li"><div class="ld" style="background:#81b29a"></div>Same-specialty AI</div>';
-    h+='<div class="li"><div class="ld" style="background:#7fa8c9"></div>Other-specialty AI</div>';
-    h+='<div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>';
+    h+='<div class="li"><div class="ld" style="background:#009E73"></div>Same-specialty AI</div>';
+    h+='<div class="li"><div class="ld" style="background:#0072B2"></div>Other-specialty AI</div>';
+    h+='<div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>';
   }
   h+='<div class="lp"></div><h4>FDA Pathway</h4>';
   h+='<div class="li"><div class="ld" style="background:#888"></div>510(k)</div>';
@@ -491,11 +533,6 @@ function treeLayout(){
   }
   ordered=left.reverse().concat(ordered).concat(right);
 
-  // Use FULL dataset date range so y-axis stays consistent when filtering
-  var minD=Infinity,maxD=-Infinity;
-  nodes.forEach(function(n){var t=new Date(n[1]).getTime();if(t<minD)minD=t;if(t>maxD)maxD=t});
-  var dr=maxD-minD||1;
-
   // Adaptive spacing - use consistent spacing based on full node count to prevent shrinking
   var fullCount=nodes.length;
   var leafPx=fullCount>500?14:fullCount>300?17:20;
@@ -557,15 +594,13 @@ function treeLayout(){
   // Compute totalH based on total width and canvas aspect ratio
   var totalWidth=xCursor-250;
   var canvasAR=cv?cv.clientWidth/Math.max(cv.clientHeight,1):1.6;
-  var totalH=Math.max(500,totalWidth/canvasAR);layoutH=totalH;
+  var totalH=Math.max(500,totalWidth/canvasAR*LAYOUT_H);layoutH=totalH;
 
   // Second pass: assign Y positions for connected components
   compXPositions.forEach(function(item){
     item.comp.forEach(function(id){
       var n=nodeMap[id];if(!n)return;
-      var t=new Date(n[1]).getTime();
-      var y=totalH-40-((t-minD)/dr)*(totalH-80);
-      posMap.set(id,{x:item.nodeX[id],y:y,n:n});
+      posMap.set(id,{x:item.nodeX[id],y:yOf(new Date(n[1]).getTime(),totalH),n:n});
     });
   });
 
@@ -582,8 +617,7 @@ function treeLayout(){
     isolated.forEach(function(comp){
       var id=comp[0];
       var n=nodeMap[id];if(!n)return;
-      var t=new Date(n[1]).getTime();
-      var y=totalH-40-((t-minD)/dr)*(totalH-80);
+      var y=yOf(new Date(n[1]).getTime(),totalH);
       var frac=smHash(id);
       var x=xMin+frac*(xMax-xMin);
       posMap.set(id,{x:x,y:y,n:n});
@@ -626,33 +660,25 @@ function draw(){
 
   // Year labels drawn in SCREEN space (fixed 13px, never scale)
   if(fNodes.length>0){
-    // Use full dataset date range for consistent year axis
-    var allTsFull=nodes.map(function(n){return new Date(n[1]).getTime()});
-    var minTs=Math.min.apply(null,allTsFull),maxTs=Math.max.apply(null,allTsFull),rng=maxTs-minTs||1;
-    var minYr=new Date(minTs).getFullYear(),maxYr=new Date(maxTs).getFullYear()+1;
+    if(!yScale)buildYScale();
+    var minYr=yScale.minY,maxYr=yScale.maxY;
     // Reuse the layout's own vertical extent so the gridlines land on the nodes
     var wx0=Infinity,wx1=-Infinity;
     posMap.forEach(function(p){if(p.x<wx0)wx0=p.x;if(p.x>wx1)wx1=p.x});
     var totalH=layoutH||500;
 
-    // Adaptive tick spacing: with a 30-year span the labels collide when zoomed out,
-    // so step up to 2/5/10-year intervals until they clear ~26px on screen.
-    var yrPx=Math.abs(((new Date(minYr+1,0,1).getTime()-new Date(minYr,0,1).getTime())/rng)*(totalH-80))*tx.s;
-    var step=1,steps=[1,2,5,10,25];
-    for(var si=0;si<steps.length;si++){step=steps[si];if(yrPx*step>=26)break}
-    var startYr=Math.ceil(minYr/step)*step;
-    var scrX1=wx1*tx.s+tx.x;
-    for(var yr=startYr;yr<=maxYr;yr+=step){
-      var tJan=new Date(yr,0,1).getTime();
-      var worldY=totalH-40-((tJan-minTs)/rng)*(totalH-80);
-      var scrY=worldY*tx.s+tx.y;
+    // The bands are uneven by design, so drop a year whenever its line would
+    // crowd the one below rather than stepping by a fixed interval.
+    var scrX1=wx1*tx.s+tx.x,lastY=Infinity;
+    cx.font='600 13px "DM Sans"';cx.textAlign='right';
+    for(var yr=maxYr;yr>=minYr;yr--){
+      var scrY=yOf(new Date(yr,0,1).getTime(),totalH)*tx.s+tx.y;
+      if(Math.abs(scrY-lastY)<22&&yr!==minYr)continue;
+      lastY=scrY;
       if(scrY<-30||scrY>ch+30)continue;
-      // Gridline
       cx.strokeStyle='rgba(0,0,0,.06)';cx.lineWidth=.8;
       cx.beginPath();cx.moveTo(80,scrY);cx.lineTo(Math.min(cw,scrX1+20),scrY);cx.stroke();
-      // Label - always 13px, positioned left of graph
       cx.fillStyle='rgba(30,30,40,.5)';
-      cx.font='600 13px "DM Sans"';cx.textAlign='right';
       cx.fillText(yr.toString(),70,scrY+5);
     }
 
@@ -684,7 +710,10 @@ function draw(){
     var a=hlSet?(hl?.85:.04):(dense?.4:.55);
     var w=hlSet?(hl?2.2:.3):(dense?.8:1.1);
     cx.strokeStyle=rgba(hlSet&&hl?PC[e[2]]:'#7a7f90',a);cx.lineWidth=w/tx.s;
-    cx.beginPath();cx.moveTo(s.x,s.y);cx.lineTo(t.x,t.y);cx.stroke();
+    // Leave the predicate vertically and arrive vertically, the standard tree
+    // link. Straight diagonals across a long time gap read as stray lines.
+    var my=(s.y+t.y)/2;
+    cx.beginPath();cx.moveTo(s.x,s.y);cx.bezierCurveTo(s.x,my,t.x,my,t.x,t.y);cx.stroke();
   });
 
   // Nodes - only render filtered nodes, using pre-computed positions from posMap
