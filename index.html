@@ -109,7 +109,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     </div>
     <div class="ob-step">
       <div class="ob-num">3</div>
-      <div class="ob-txt"><b>Colours show predicate provenance.</b> <span style="color:#009E73">&bull;</span> Green = AI predicate. <span style="color:#D55E00">&bull;</span> Vermillion = non-AI predicate. <span style="color:#E69F00">&bull;</span> Amber = no predicate (De Novo or PMA). <span style="color:#0072B2">&bull;</span> Blue = other-specialty AI, shown in the specialty datasets only.</div>
+      <div class="ob-txt"><b>Colours show predicate provenance.</b> <span style="color:#81b29a">&bull;</span> Green = AI predicate. <span style="color:#e07a5f">&bull;</span> Terracotta = non-AI predicate. <span style="color:#e0b44a">&bull;</span> Gold = no predicate (De Novo or PMA). <span style="color:#7fa8c9">&bull;</span> Blue = other-specialty AI, shown in the specialty datasets only.</div>
     </div>
     <div class="ob-step">
       <div class="ob-num">4</div>
@@ -144,10 +144,10 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     <canvas id="c"></canvas>
     <div class="lg" id="legend">
       <h4>Predicate Provenance</h4>
-      <div class="li"><div class="ld" style="background:#009E73"></div>Same-specialty AI</div>
-      <div class="li"><div class="ld" style="background:#0072B2"></div>Other-specialty AI</div>
-      <div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>
-      <div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>
+      <div class="li"><div class="ld" style="background:#81b29a"></div>Same-specialty AI</div>
+      <div class="li"><div class="ld" style="background:#7fa8c9"></div>Other-specialty AI</div>
+      <div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>
+      <div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>
       <div class="lp"></div>
       <h4>FDA Pathway</h4>
       <div class="li"><div class="ld" style="background:#888"></div>510(k)</div>
@@ -187,7 +187,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
   <p>Both filters are available in the dashboard, and the device detail panel displays both classifications for each individual device. In the complete database view, devices that have not yet been mapped to one of our specialties can be isolated using the <em>Not mapped</em> option.</p>
 
   <h3>Key observations</h3>
-  <p>Across the complete database, <strong>522 devices (36.5%) are classified as citing a non-AI predicate</strong> (vermillion dots), meaning their regulatory clearance rests on equivalence to a device that sits outside the recognised AI/ML landscape. A further 3.8% entered without a predicate at all, through the De Novo or Premarket Approval pathways.</p>
+  <p>Across the complete database, <strong>522 devices (36.5%) are classified as citing a non-AI predicate</strong> (terracotta dots), meaning their regulatory clearance rests on equivalence to a device that sits outside the recognised AI/ML landscape. A further 3.8% entered without a predicate at all, through the De Novo or Premarket Approval pathways.</p>
   <p>The network is highly concentrated. 59 devices each serve as the predicate for three or more subsequent approvals, and the largest single family traces back to ContaCT (DEN170073), which anchors 116 downstream devices across multiple manufacturers and clinical applications. The tree structures show how one early approval, often a De Novo classification, can become the regulatory foundation for dozens of later devices. Predicate chains reach 8 generations deep, while 356 devices sit in isolation with no predicate link to any other device in the database.</p>
 
   <p>We aim to regularly update the dashboard with additional specialties, features, and up-to-date devices as the FDA AI/ML database is periodically updated.</p>
@@ -209,16 +209,15 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
 <div class="tt" id="tt" style="display:none"></div>
 
 <script>
-// Okabe-Ito, the standard colourblind-safe palette for scientific figures.
-// The previous soft green and terracotta separated by only dE 7.7 under
-// deuteranopia, which put the dashboard's central distinction, AI versus
-// non-AI predicate, out of reach for roughly 1 in 12 men. These four clear
-// every check in the validator, including all-pairs separation.
+// House palette, kept deliberately soft. Note that green and terracotta
+// separate by only dE 7.7 under deuteranopia, so the AI versus non-AI
+// distinction is weak for red-green colourblind readers; the detail panel names
+// the provenance in text, which is the fallback.
 // Specialty view: 0=Non-AI, 1=Same-spec AI, 2=Other-spec AI, 3=No predicate
-var PC_SPEC=['#D55E00','#009E73','#0072B2','#E69F00'];
+var PC_SPEC=['#e07a5f','#81b29a','#7fa8c9','#e0b44a'];
 var PN_SPEC=['Non AI device','Specialty AI device','Other AI device','No predicate'];
 // All view: 0=Non-AI, 1=AI device, 2=No predicate
-var PC_ALL=['#D55E00','#009E73','#E69F00'];
+var PC_ALL=['#e07a5f','#81b29a','#e0b44a'];
 var PN_ALL=['Non AI device','AI device','No predicate'];
 // Active palette (set on loadSpec)
 var PC=PC_SPEC,PN=PN_SPEC;
@@ -440,14 +439,14 @@ function updateLegend(){
   var lg=document.getElementById('legend');
   var h='<h4>Predicate Provenance</h4>';
   if(isAllView){
-    h+='<div class="li"><div class="ld" style="background:#009E73"></div>AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>';
+    h+='<div class="li"><div class="ld" style="background:#81b29a"></div>AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>';
   }else{
-    h+='<div class="li"><div class="ld" style="background:#009E73"></div>Same-specialty AI</div>';
-    h+='<div class="li"><div class="ld" style="background:#0072B2"></div>Other-specialty AI</div>';
-    h+='<div class="li"><div class="ld" style="background:#D55E00"></div>Non-AI device</div>';
-    h+='<div class="li"><div class="ld" style="background:#E69F00"></div>No predicate</div>';
+    h+='<div class="li"><div class="ld" style="background:#81b29a"></div>Same-specialty AI</div>';
+    h+='<div class="li"><div class="ld" style="background:#7fa8c9"></div>Other-specialty AI</div>';
+    h+='<div class="li"><div class="ld" style="background:#e07a5f"></div>Non-AI device</div>';
+    h+='<div class="li"><div class="ld" style="background:#e0b44a"></div>No predicate</div>';
   }
   h+='<div class="lp"></div><h4>FDA Pathway</h4>';
   h+='<div class="li"><div class="ld" style="background:#888"></div>510(k)</div>';
@@ -488,6 +487,14 @@ function filter(){
 // 3. Layout tree with root at bottom, children spreading upward
 // 4. Sort components by size, place largest in centre
 // 5. Y-axis: oldest at bottom, newest at top (inverted from before)
+// splitmix32-style hash, 0-1, used to place things deterministically but
+// without inheriting any order from the source data.
+function smHash(str){
+  var h=0x9e3779b9;
+  for(var i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),0x85ebca6b);h=h^(h>>>13);h=Math.imul(h,0xc2b2ae35);h=h^(h>>>16)}
+  return(h>>>0)/4294967296;
+}
+
 function treeLayout(){
   posMap.clear();
   if(!fNodes.length)return;
@@ -522,8 +529,12 @@ function treeLayout(){
   var connected=components.filter(function(c){return c.length>1});
   var isolated=components.filter(function(c){return c.length===1});
 
-  // Sort connected by size, place largest in centre
-  connected.sort(function(a,b){return b.length-a.length});
+  // Sort connected by size, place largest in centre. Ties are broken by a hash
+  // of the root id: a stable sort would leave the many two-node components in
+  // spreadsheet order, which is roughly chronological, and the alternating
+  // left/right placement then renders that order as two smooth arcs sweeping
+  // down the left edge and up the right, which reads as structure but is not.
+  connected.sort(function(a,b){return b.length-a.length||smHash(a[0])-smHash(b[0])});
   var ordered=[];
   var left=[],right=[];
   for(var i=0;i<connected.length;i++){
@@ -609,11 +620,6 @@ function treeLayout(){
   if(isolated.length>0){
     var isoWidth=Math.max(totalWidth,400);
     var xMin=250,xMax=250+isoWidth;
-    function smHash(str){
-      var h=0x9e3779b9;
-      for(var i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),0x85ebca6b);h=h^(h>>>13);h=Math.imul(h,0xc2b2ae35);h=h^(h>>>16)}
-      return(h>>>0)/4294967296; // return 0-1
-    }
     isolated.forEach(function(comp){
       var id=comp[0];
       var n=nodeMap[id];if(!n)return;
@@ -671,9 +677,11 @@ function draw(){
     // crowd the one below rather than stepping by a fixed interval.
     var scrX1=wx1*tx.s+tx.x,lastY=Infinity;
     cx.font='600 13px "DM Sans"';cx.textAlign='right';
-    for(var yr=maxYr;yr>=minYr;yr--){
+    // Walk up from the oldest year: it is always drawn, and every later label
+    // has to clear it rather than the other way round.
+    for(var yr=minYr;yr<=maxYr;yr++){
       var scrY=yOf(new Date(yr,0,1).getTime(),totalH)*tx.s+tx.y;
-      if(Math.abs(scrY-lastY)<22&&yr!==minYr)continue;
+      if(Math.abs(scrY-lastY)<22)continue;
       lastY=scrY;
       if(scrY<-30||scrY>ch+30)continue;
       cx.strokeStyle='rgba(0,0,0,.06)';cx.lineWidth=.8;
