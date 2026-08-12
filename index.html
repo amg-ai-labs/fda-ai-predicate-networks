@@ -276,11 +276,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     <select id="lineageMode" aria-label="Lineage presentation">
       <option value="table">Table</option><option value="diagram">Diagram</option>
     </select>
-    <label style="font-size:11px;color:var(--t2);font-weight:600">Predicate steps</label>
-    <select id="lineageDepth" aria-label="Number of predicate steps to show">
-      <option value="99">All</option><option value="1">1</option><option value="2">2</option>
-      <option value="3">3</option><option value="5">5</option>
-    </select>
+    <button class="b2" id="lineageAll" style="padding:5px 12px;display:none" onclick="lineageShowAll=!lineageShowAll;renderLineage()"></button>
     <button class="b2" style="padding:5px 12px" onclick="exportLineage('svg')">Download SVG</button>
     <button class="b2" style="padding:5px 12px" onclick="exportLineage('csv')">Download CSV</button>
     <span id="lineageMeta" style="font-size:11px;color:var(--t2)"></span>
@@ -494,7 +490,6 @@ function init(){
   document.getElementById('sub').onchange=filter;
   document.getElementById('lspec').onchange=filter;
   document.getElementById('lineageAnchor').onchange=function(){lineageRootId=this.value;renderLineage()};
-  document.getElementById('lineageDepth').onchange=renderLineage;
   document.getElementById('lineageMode').onchange=renderLineage;
   document.getElementById('go').onclick=search;
   var qEl=document.getElementById('q');
@@ -1048,14 +1043,9 @@ function fillLineageAnchors(){
   sel.value=lineageRootId;
 }
 
-var lineageCollapsed={},lineageShowAll=false;
-function toggleBranch(id,ev){
-  if(ev)ev.stopPropagation();
-  lineageCollapsed[id]=!lineageCollapsed[id];
-  renderLineage();
-}
+var lineageShowAll=false;
 // Family in display order, honouring collapse and the depth limit.
-function lineageRows(rootId,maxGen){
+function lineageRows(rootId){
   var ch=datasetChildren(),out=[];
   // With a filter on, keep every matching device and the ancestors that connect
   // it to the boundary; everything else folds to a single count row.
@@ -1074,32 +1064,43 @@ function lineageRows(rootId,maxGen){
       var na=nodes.find(function(n){return n[0]===a}),nb=nodes.find(function(n){return n[0]===b});
       return (na&&nb)?(na[1]<nb[1]?-1:1):0;
     });
-    var atLimit=depth>=maxGen, folded=!!lineageCollapsed[id], hidden=0;
+    var hidden=0;
     if(lineageCompress&&!relevant[id]){
       out.push({id:id,depth:depth,rails:lastFlags.slice(),hasKids:kids.length>0,open:false,
                 hidden:familySize(id,{})-1,context:true});
       return;
     }
-    if((atLimit||folded)&&kids.length)kids.forEach(function(c){hidden+=familySize(c,{})});
     out.push({id:id,depth:depth,rails:lastFlags.slice(),hasKids:kids.length>0,
-              open:!(atLimit||folded)&&kids.length>0,hidden:hidden});
-    if(atLimit||folded)return;
+              open:kids.length>0,hidden:0});
     kids.forEach(function(k,i){walk(k,depth+1,lastFlags.concat([i===kids.length-1]))});
   })(rootId,0,[]);
   return out;
 }
 // What changed on the step from a device to its predicate.
 function stepSignals(id){
-  var par=predMap[id]; if(!par)return null;
-  var a=det[id]||[],b=det[par]||[];
-  var na=nodes.find(function(x){return x[0]===id}),nb=nodes.find(function(x){return x[0]===par});
+  var par=predMap[id];
+  var a=det[id]||[],b,bDate,bFirm,bCode;
+  var na=nodes.find(function(x){return x[0]===id}),nb;
+  if(par){
+    b=det[par]||[];nb=nodes.find(function(x){return x[0]===par});
+    bDate=nb?nb[1]:null;bFirm=b[1];bCode=b[7];
+  }else{
+    // the predicate sits outside the dataset; openFDA still dates and names it
+    var cid=a[6]||'';
+    if(!cid||_DET[cid]===undefined&&!_EXT[cid])return null;
+    if(_DET[cid]){b=_DET[cid];var nx=null;
+      Object.keys(D).forEach(function(k){if(!nx)nx=D[k].g.n.filter(function(x){return x[0]===cid})[0]});
+      bDate=nx?nx[1]:null;bFirm=b[1];bCode=b[7];
+    }else{var x=_EXT[cid];b=[];bDate=x.d||null;bFirm=x.c||'';bCode='';}
+  }
   function firm(x){return (x||'').toLowerCase().replace(/[.,]/g,' ')
     .replace(/\b(inc|ltd|llc|corp|co|gmbh|bv|ag|sa|srl|as|plc|limited|company|holdings)\b/g,'')
     .replace(/\s+/g,' ').trim()}
-  return {years:(na&&nb)?((new Date(na[1])-new Date(nb[1]))/31557600000):null,
-          codeFrom:b[7]||'',codeTo:a[7]||'',
-          codeChanged:!!(a[7]&&b[7]&&a[7]!==b[7]),
-          firmChanged:!!(a[1]&&b[1]&&firm(a[1])!==firm(b[1]))};
+  return {years:(na&&bDate)?((new Date(na[1])-new Date(bDate))/31557600000):null,
+          codeFrom:bCode||'',codeTo:a[7]||'',
+          codeChanged:!!(a[7]&&bCode&&a[7]!==bCode),
+          firmChanged:!!(a[1]&&bFirm&&firm(a[1])!==firm(bFirm)),
+          external:!par};
 }
 function lineageKey(e,id){
   var rows=[].slice.call(document.querySelectorAll('#lineageTable tbody tr[data-id]'));
@@ -1108,15 +1109,12 @@ function lineageKey(e,id){
   else if(e.key==='ArrowDown')to=rows[Math.min(rows.length-1,i+1)];
   else if(e.key==='ArrowUp')to=rows[Math.max(0,i-1)];
   else if(e.key==='ArrowRight'){
-    var row=rows[i];
-    if(row.getAttribute('aria-expanded')==='false'){e.preventDefault();toggleBranch(id);return}
-    to=rows[i+1];
+    var kid=(datasetChildren()[id]||[])[0];
+    to=rows.filter(function(r){return r.getAttribute('data-id')===kid})[0];
   }
   else if(e.key==='ArrowLeft'){
-    var row2=rows[i];
-    if(row2.getAttribute('aria-expanded')==='true'){e.preventDefault();toggleBranch(id);return}
     var par=predMap[id];
-    to=rows.find(function(r){return r.getAttribute('data-id')===par});
+    to=rows.filter(function(r){return r.getAttribute('data-id')===par})[0];
   }
   else if(e.key==='Home')to=rows[0];
   else if(e.key==='End')to=rows[rows.length-1];
@@ -1148,7 +1146,6 @@ function renderLineageTable(){
   if(!lineageRefocus&&document.activeElement&&t.contains(document.activeElement)){
     lineageRefocus=document.activeElement.getAttribute('data-id');
   }
-  var maxGen=parseInt(document.getElementById('lineageDepth').value)||99;
   if(!lineageRootId){
     t.tHead.innerHTML='';
     t.tBodies[0].innerHTML='<tr><td style="padding:34px;text-align:center;color:var(--t2)">'+
@@ -1158,8 +1155,8 @@ function renderLineageTable(){
     document.getElementById('lineageNote').innerHTML='';
     return;
   }
-  var rows=lineageRows(lineageRootId,maxGen), anc=selKey?ancestorsOf(selKey):{};
-  t.tHead.innerHTML='<tr>'+['Device','Decision date','Since predicate','Applicant','Product code','Pathway','Predicate basis','Direct / downstream']
+  var rows=lineageRows(lineageRootId), anc=selKey?ancestorsOf(selKey):{};
+  t.tHead.innerHTML='<tr>'+['Device','Decision date','Since predicate','Applicant','Product code','Pathway','Predicate basis','Direct / downstream in filter']
     .map(function(h,i){return '<th scope="col"'+([2,4,7].indexOf(i)>=0?' style="text-align:right"':'')+'>'+h+'</th>'}).join('')+'</tr>';
   var bRow=boundaryOf(lineageRootId);
   var bHtml=bRow?('<tr><td colspan="8" style="padding:9px 14px;background:#f7f8fa;border-bottom:1px solid var(--bd)">'+
@@ -1175,9 +1172,7 @@ function renderLineageTable(){
       rail=r.rails.slice(0,-1).map(function(last){return '<span class="rail'+(last?'':' v')+'"></span>'}).join('')+
            '<span class="rail '+(r.rails[r.rails.length-1]?'t':'v b')+'"></span>';
     }
-    var tw=r.hasKids
-      ? '<button class="tw2" aria-label="'+(r.open?'Collapse ':'Expand ')+r.id+'" onclick="toggleBranch(\''+r.id+'\',event)">'+(r.open?'\u25bc':'\u25b6')+'</button>'
-      : '<span class="tw2"></span>';
+    var tw='<span class="tw2"></span>';
     var mark=n[3]===1?'<span class="tri" style="border-bottom-color:'+PC[n[4]]+'"></span>'
            :n[3]===2?'<span class="dia" style="background:'+PC[n[4]]+'"></span>'
                     :'<span class="dot" style="background:'+PC[n[4]]+'"></span>';
@@ -1186,8 +1181,7 @@ function renderLineageTable(){
     if(sg&&sg.codeChanged)sig+='<span class="sig code" title="FDA product-code transition '+esc(sg.codeFrom)+' to '+esc(sg.codeTo)+'. A cue for investigation, not proof of technological drift.">'+esc(sg.codeFrom)+'\u2192'+esc(sg.codeTo)+'</span>';
     if(sg&&sg.firmChanged)sig+='<span class="sig firm" title="The applicant name differs from its predicate\u2019s. The data do not resolve subsidiaries, acquisitions or licensing.">different applicant</span>';
     return '<tr class="'+(selKey===r.id?'sel ':'')+(anc[r.id]?'anc ':'')+(inF?'':'ctx')+'" data-id="'+r.id+'" '+
-      'tabindex="'+((selKey===r.id||(!selKey&&r.depth===0))?0:-1)+'" role="row" aria-level="'+(r.depth+1)+'"'+
-      (r.hasKids?' aria-expanded="'+(r.open?'true':'false')+'"':'')+
+      'tabindex="0" role="row" aria-level="'+(r.depth+1)+'" aria-selected="'+(selKey===r.id?'true':'false')+'"'+
       ' onkeydown="lineageKey(event,\''+r.id+'\')" onclick="lineagePick(\''+r.id+'\')">'+
       '<td>'+rail+tw+mark+'<span class="mn" style="font-weight:600">'+r.id+'</span> '+esc(d[0]||r.id)+sig+'</td>'+
       '<td class="mn">'+n[1]+'</td>'+
@@ -1196,7 +1190,8 @@ function renderLineageTable(){
       '<td class="mn" style="text-align:right">'+esc(d[7]||'\u2014')+'</td>'+
       '<td>'+FN[n[3]]+'</td>'+
       '<td><span class="pill pv i'+n[4]+'">'+PN[n[4]]+'</span></td>'+
-      '<td class="mn" style="text-align:right">'+((datasetChildren()[r.id]||[]).length)+' / '+(familySize(r.id,{})-1)+'</td></tr>';
+      '<td class="mn" style="text-align:right" title="within the current filter, matching the detail panel">'+
+      ((filteredChildren()[r.id]||[]).length)+' / '+downstreamOf(r.id,{})+'</td></tr>';
   }).join('');
   if(lineageRefocus){
     var back=t.querySelector('tr[data-id="'+lineageRefocus+'"]');
@@ -1208,6 +1203,10 @@ function renderLineageTable(){
   }
   lineagePathStrip();
   lineageMetaLine(rows.length);
+  var btn=document.getElementById('lineageAll');
+  var compressed=!!fIdSet&&fIdSet.size<nodes.length;
+  btn.style.display=compressed?'':'none';
+  btn.textContent=lineageShowAll?'Show matches and their ancestry':'Show the whole family';
 }
 // The chain from the boundary to the selected device, and what it cost.
 function lineagePathStrip(){
@@ -1215,11 +1214,15 @@ function lineagePathStrip(){
   if(!selKey||lineageRootOf(selKey)!==lineageRootId){box.style.display='none';return}
   var chain=[selKey],id=selKey,seen={};
   while(predMap[id]&&!seen[id]){seen[id]=1;id=predMap[id];chain.unshift(id)}
-  var steps=chain.length-1, drift=0, span=null;
-  chain.forEach(function(c){var sg=stepSignals(c);if(sg&&sg.codeChanged)drift++});
-  var a=nodes.find(function(x){return x[0]===chain[0]}),b=nodes.find(function(x){return x[0]===selKey});
-  if(a&&b)span=((new Date(b[1])-new Date(a[1]))/31557600000).toFixed(1);
   var bnd=boundaryOf(chain[0]);
+  var rootSg=stepSignals(chain[0]);
+  var steps=chain.length-1+((rootSg&&rootSg.years!=null)?1:0), drift=0, span=null;
+  chain.forEach(function(c){var sg=stepSignals(c);if(sg&&sg.codeChanged)drift++});
+  var b=nodes.find(function(x){return x[0]===selKey});
+  var startDate=(rootSg&&rootSg.years!=null)
+    ? new Date(new Date((nodes.find(function(x){return x[0]===chain[0]})||[])[1]).getTime()-rootSg.years*31557600000)
+    : new Date((nodes.find(function(x){return x[0]===chain[0]})||[])[1]);
+  if(b&&startDate&&!isNaN(startDate))span=((new Date(b[1])-startDate)/31557600000).toFixed(1);
   box.style.display='';
   box.innerHTML='<span style="color:var(--t2);margin-right:6px">Rests on</span>'+
     '<span style="color:var(--t2)">'+esc(bnd.id||bnd.name)+'</span> '+
@@ -1236,12 +1239,15 @@ function lineagePathStrip(){
 // One summary line, shared by both presentations.
 function lineageMetaLine(shown){
   var fam=familySize(lineageRootId,{});
-  var all=lineageRows(lineageRootId,99);
+  var all=lineageRows(lineageRootId);
   var matching=all.filter(function(r){return !fIdSet||fIdSet.has(r.id)}).length;
   var yrs=all.map(function(r){var n=nodes.find(function(x){return x[0]===r.id});return n?n[1].slice(0,4):''}).filter(Boolean).sort();
   var firms={},codes={},steps=0,drift=0,newFirm=0;
   all.forEach(function(r){
-    var d=det[r.id];if(d&&d[1])firms[d[1].toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ').trim()]=1;
+    var d=det[r.id];
+    if(d&&d[1])firms[d[1].toLowerCase().replace(/[.,]/g,' ')
+      .replace(/\b(inc|ltd|llc|corp|co|gmbh|bv|ag|sa|srl|as|plc|limited|company|holdings)\b/g,'')
+      .replace(/\s+/g,' ').trim()]=1;
     if(d&&d[7])codes[d[7]]=1;
     if(r.depth>steps)steps=r.depth;
     var sg=stepSignals(r.id);
@@ -1253,16 +1259,15 @@ function lineageMetaLine(shown){
     (shown!=null&&shown<fam?' \u00b7 '+shown+' shown':'')+
     ' \u00b7 '+(yrs.length?yrs[0]+'\u2013'+yrs[yrs.length-1]:'')+
     ' \u00b7 '+steps+' predicate step'+(steps===1?'':'s')+
-    ' \u00b7 '+Object.keys(firms).length+' manufacturer'+(Object.keys(firms).length===1?'':'s')+
+    ' \u00b7 '+Object.keys(firms).length+' applicant name'+(Object.keys(firms).length===1?'':'s')+
     ' \u00b7 '+Object.keys(codes).length+' product code'+(Object.keys(codes).length===1?'':'s')+
     (drift?' \u00b7 '+drift+' step'+(drift===1?'':'s')+' change product code':'')+
-    (newFirm?' \u00b7 '+newFirm+' cite another company':'');
+    (newFirm?' \u00b7 '+newFirm+' step'+(newFirm===1?'':'s')+' change applicant name':'');
   var lost=selKey&&lineageRootOf(selKey)===lineageRootId&&
-    !lineageRows(lineageRootId,parseInt(document.getElementById('lineageDepth').value)||99)
-      .some(function(r){return r.id===selKey});
+    !lineageRows(lineageRootId).some(function(r){return r.id===selKey});
   document.getElementById('lineageNote').innerHTML=lost
-    ? 'The selected device <strong>'+esc(selKey)+'</strong> is folded away or deeper than the current limit. '+
-      '<button class="lk" onclick="lineageCollapsed={};lineageShowAll=true;document.getElementById(\'lineageDepth\').value=99;renderLineage()">Show the whole family</button>'
+    ? 'The selected device <strong>'+esc(selKey)+'</strong> is not in the compressed view. '+
+      '<button class="lk" onclick="lineageShowAll=true;renderLineage()">Show the whole family</button>'
     : '';
 }
 
@@ -1299,14 +1304,16 @@ function renderLineage(){
     return;
   }
 
-  var maxGen=parseInt(document.getElementById('lineageDepth').value)||99;
   var ch=datasetChildren();
 
   // tidy tree: depth sets the column, leaf order sets the row
   var ROW=26, BAND=196, GUT=52, COL=BAND+GUT, PADX=26, PADY=46;
+  // draw exactly the devices the table would list, so the two agree
+  var visible={};
+  lineageRows(lineageRootId).forEach(function(r){visible[r.id]=1});
   var rows=0, laid=[];
   (function place(id,depth){
-    var kids=(depth>=maxGen)?[]:(ch[id]||[]).slice().sort(function(a,b){
+    var kids=(ch[id]||[]).filter(function(k){return visible[k]}).sort(function(a,b){
       var na=nodes.find(function(n){return n[0]===a}),nb=nodes.find(function(n){return n[0]===b});
       return (na&&nb)?(na[1]<nb[1]?-1:1):0;
     });
@@ -1336,6 +1343,8 @@ function renderLineage(){
   }
   var BW=bnd?372:0;
 
+  laid=laid.filter(function(r){return visible[r.id]});
+  laid.forEach(function(r){r.kids=r.kids.filter(function(k){return visible[k]})});
   var maxDepth=Math.max.apply(null,laid.map(function(r){return r.depth}));
   var W=PADX*2+BW+COL*maxDepth+BAND+PADX, H=PADY+ROW*Math.max(rows,1)+PADY;
   svg.setAttribute('width',W); svg.setAttribute('height',H);
@@ -1439,6 +1448,7 @@ function renderLineage(){
       back.setAttribute('tabindex',0);back.focus()}
     lineageRefocus=null;
   }
+  lineagePathStrip();
   var total=laid.length, matching=laid.filter(function(r){return !fIdSet||fIdSet.has(r.id)}).length;
   var fam=familySize(lineageRootId,{});
   var yrs=laid.map(function(r){var n=nodes.find(function(x){return x[0]===r.id});return n?n[1].slice(0,4):''}).filter(Boolean).sort();
@@ -1473,6 +1483,10 @@ function exportLineage(fmt){
   if(!lineageRootId)return;
   var base='predicates-app_lineage_'+lineageRootId;
   if(fmt==='svg'){
+    // table mode never draws the diagram, so draw it now rather than export a
+    // blank or a previous family's picture under this family's name
+    var wasTable=document.getElementById('lineageMode').value==='table';
+    if(wasTable){document.getElementById('lineageMode').value='diagram';renderLineage()}
     var svg=document.getElementById('lineage').cloneNode(true);
     svg.setAttribute('xmlns',SVGNS);
     var css='<style type="text/css"><![CDATA['+
@@ -1491,6 +1505,7 @@ function exportLineage(fmt){
     var out='<?xml version="1.0" encoding="UTF-8"?>\n'+
       svg.outerHTML.replace(/^<svg([^>]*)>/,'<svg$1>'+title+css);
     dl(new Blob([out],{type:'image/svg+xml'}),base+'.svg');
+    if(wasTable){document.getElementById('lineageMode').value='table';renderLineage()}
   }else{
     var head=['Predicate step','Submission','Device','Company','Decision date','Pathway',
               'Predicate provenance','Predicate','Years since predicate','FDA product code',
@@ -1499,13 +1514,13 @@ function exportLineage(fmt){
     function q(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
     // export what the reader is looking at, in the order they see it
     var src=(document.getElementById('lineageMode').value==='table')
-      ? lineageRows(lineageRootId,parseInt(document.getElementById('lineageDepth').value)||99)
+      ? lineageRows(lineageRootId)
       : lineageNodes;
     var rows=src.map(function(r){
       var n=nodes.find(function(x){return x[0]===r.id})||[],d=det[r.id]||[],sg=stepSignals(r.id);
       return [r.depth,r.id,d[0]||'',d[1]||'',n[1]||'',FN[n[3]],PN[n[4]],
               predMap[r.id]||d[5]||'',
-              sg&&sg.years!=null?sg.years:'',
+              sg&&sg.years!=null?sg.years.toFixed(1):'',
               d[7]||'', sg?(sg.codeChanged?'yes':'no'):'', sg?(sg.firmChanged?'yes':'no'):'',
               familySize(r.id,{})-1,
               (!fIdSet||fIdSet.has(r.id))?'yes':'no',
@@ -1985,7 +2000,11 @@ function showDet(n){
       if(gap>0)yrs=', cleared '+gap+' year'+(gap===1?'':'s')+' earlier';
     }
     var what;
-    if(predId)what='citing AI/ML-listed predicate <strong>'+predId+'</strong>'+yrs;
+    if(predId){
+      var pn2=nodes.find(function(x){return x[0]===predId});
+      what='citing AI/ML-listed predicate <strong>'+predId+'</strong>'+
+        (yrs?yrs.replace('cleared',pn2?FV[pn2[3]]:'cleared'):'');
+    }
     else if(citedId&&_DET[citedId])what='citing AI/ML-listed predicate <strong>'+esc(citedId)+'</strong> ('+esc(_DET[citedId][0])+')'+yrs+', which is not mapped to '+esc(spec);
     else if(citedId&&_EXT[citedId])what='citing <strong>'+esc(citedId)+'</strong>'+(_EXT[citedId].n?' ('+esc(_EXT[citedId].n)+')':'')+yrs+', which is not in the AI/ML database';
     else if(citedId)what='citing <strong>'+esc(citedId)+'</strong>, which is not in the AI/ML database';
@@ -2063,7 +2082,7 @@ function compareBlock(id){
     row('Product code',a[7],b[7],sg&&sg.codeChanged)+
     row('Pathway',FN[na[3]],FN[nb[3]])+
     row('FDA lead specialty',a[4],b[4])+
-    row('Mapped specialty',na[5],nb[5])+
+    row(isAllView?'Mapped specialty':'Subspecialty',na[5],nb[5])+
     '</table>'+
     ((sg&&sg.codeChanged)?'<div style="font-size:10.5px;color:#8a5a10;margin-top:6px;line-height:1.45">The FDA product code differs across this step. Product codes identify generic device types; a transition is a cue to compare intended use, not proof of technological drift.</div>':'')+
     '</div>';
@@ -2211,7 +2230,7 @@ function switchTo(dataset,id){
   clickDev(id);
 }
 function resetFilters(){
-  isolatedOnly=false;lineageShowAll=false;lineageCollapsed={};
+  isolatedOnly=false;lineageShowAll=false;
   document.getElementById('fda').value='all';
   document.getElementById('lspec').value='all';
   document.getElementById('sub').value='all';
