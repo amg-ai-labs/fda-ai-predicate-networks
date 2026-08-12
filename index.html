@@ -106,7 +106,7 @@ canvas:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
 .lgd i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
 
 /* GRAPH AREA - same light grey as Dash app */
-.shell{display:flex;align-items:stretch}
+.shell{display:flex;align-items:stretch;position:relative}
 .views{flex:1;min-width:0}
 .gw{display:flex;background:var(--bg);position:relative;height:78vh;min-height:520px}
 .cb{flex:1;position:relative;overflow:hidden}
@@ -126,12 +126,11 @@ canvas{display:block;cursor:grab}canvas:active{cursor:grabbing}
 .lp{height:1px;background:var(--bd);margin:7px 0}
 
 /* SIDE PANEL - light */
-.sd{width:320px;min-width:320px;background:var(--sf);border-left:1px solid var(--bd);overflow-y:auto}.sd.cl{width:0;min-width:0;overflow:hidden;border:none;visibility:hidden}
+.sd{width:320px;min-width:320px;background:var(--sf);border-left:1px solid var(--bd);overflow-y:auto}.sd.cl{display:none}
 /* On a phone the fixed panel left a 70px canvas, so it becomes a sheet over it */
 @media(max-width:720px){
-  .sd{position:absolute;top:0;right:0;bottom:0;width:100%;min-width:0;z-index:20;box-shadow:0 0 24px rgba(0,0,0,.18)}
+  .sd{position:absolute;top:0;right:0;bottom:0;left:0;width:auto;min-width:0;z-index:20;box-shadow:0 0 24px rgba(0,0,0,.18)}
   .sd.cl{display:none}
-  .gw{position:relative}
 }
 .sh{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--sf);z-index:2}
 .sh h3{font-size:13px;font-weight:700;color:var(--tx)}.sh button{background:none;border:none;color:var(--t2);cursor:pointer;font-size:16px}
@@ -250,14 +249,15 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
   <div class="tvh">
     <label style="font-size:11px;color:var(--t2);font-weight:600">Lineage</label>
     <select id="lineageAnchor" aria-label="Choose a lineage to display" style="max-width:420px"></select>
-    <label style="font-size:11px;color:var(--t2);font-weight:600">Generations</label>
-    <select id="lineageDepth" aria-label="Number of generations to show">
+    <label style="font-size:11px;color:var(--t2);font-weight:600">Predicate steps</label>
+    <select id="lineageDepth" aria-label="Number of predicate steps to show">
       <option value="99">All</option><option value="1">1</option><option value="2">2</option>
       <option value="3">3</option><option value="5">5</option>
     </select>
     <button class="b2" style="padding:5px 12px" onclick="exportLineage('svg')">Download SVG</button>
     <button class="b2" style="padding:5px 12px" onclick="exportLineage('csv')">Download CSV</button>
     <span id="lineageMeta" style="font-size:11px;color:var(--t2)"></span>
+    <span id="lineageNote" style="font-size:11.5px;color:#8a5a00"></span>
   </div>
   <div style="padding:8px 20px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#444;border-bottom:1px solid var(--bd)">
     <span id="lineageKey"></span>
@@ -728,7 +728,7 @@ function showView(v){
   });
   if(v==='devices')renderTable();
   else if(v==='trends')renderTrends();
-  else if(v==='lineage')renderLineage();
+  else if(v==='lineage'){if(selKey)lineageFocus(selKey);renderLineage()}
   else resize();
 }
 
@@ -985,10 +985,16 @@ function familySize(id,memo){
 }
 function lineageAnchors(){
   var ch=datasetChildren(), memo={};
+  function matching(id){
+    var m=(!fIdSet||fIdSet.has(id))?1:0;
+    (ch[id]||[]).forEach(function(c){m+=matching(c)});
+    return m;
+  }
   return Object.keys(ch)
     .filter(function(id){return !predMap[id]})
-    .map(function(id){return {id:id,n:familySize(id,memo)}})
-    .sort(function(a,b){return b.n-a.n||a.id.localeCompare(b.id)});
+    .map(function(id){return {id:id,n:familySize(id,memo),m:matching(id)}})
+    // families that actually contain something the reader is filtering for come first
+    .sort(function(a,b){return b.m-a.m||b.n-a.n||a.id.localeCompare(b.id)});
 }
 function lineageRootOf(id){
   var seen={};
@@ -999,16 +1005,24 @@ function fillLineageAnchors(){
   var sel=document.getElementById('lineageAnchor'), roots=lineageAnchors();
   sel.innerHTML=roots.map(function(r){
     var d=det[r.id]||[];
-    return '<option value="'+r.id+'">'+esc((d[0]||r.id).slice(0,52))+' \u00b7 '+r.id+' \u00b7 '+r.n+' devices</option>';
+    return '<option value="'+r.id+'">'+esc((d[0]||r.id).slice(0,46))+' \u00b7 '+r.id+' \u00b7 '+
+      (r.m<r.n?r.m+' of '+r.n:r.n)+' devices</option>';
   }).join('');
-  if(!roots.length){sel.innerHTML='<option value="">No lineage in the current filter</option>';lineageRootId=null;return}
+  if(!roots.length||!roots[0].m){
+    sel.innerHTML='<option value="">No lineage contains a device matching the current filters</option>';
+    lineageRootId=null;return;
+  }
   if(!lineageRootId||!roots.some(function(r){return r.id===lineageRootId}))lineageRootId=roots[0].id;
   sel.value=lineageRootId;
 }
 
 function renderLineage(){
-  fillLineageAnchors();
   var svg=document.getElementById('lineage');
+  // hold on to whatever had keyboard focus, so re-rendering does not drop it
+  if(!lineageRefocus&&document.activeElement&&svg.contains(document.activeElement)){
+    lineageRefocus=document.activeElement.getAttribute('data-id');
+  }
+  fillLineageAnchors();
   while(svg.firstChild)svg.removeChild(svg.firstChild);
   var meta=document.getElementById('lineageMeta');
   if(!lineageRootId){
@@ -1036,7 +1050,11 @@ function renderLineage(){
       var na=nodes.find(function(n){return n[0]===a}),nb=nodes.find(function(n){return n[0]===b});
       return (na&&nb)?(na[1]<nb[1]?-1:1):0;
     });
-    var rec={id:id,depth:depth,kids:kids,y:0,hidden:(ch[id]||[]).length-kids.length};
+    var hiddenBelow=0;
+    if(kids.length!==(ch[id]||[]).length){
+      (ch[id]||[]).forEach(function(c){hiddenBelow+=1+familySize(c,{})-1});
+    }
+    var rec={id:id,depth:depth,kids:kids,y:0,hidden:hiddenBelow};
     laid.push(rec);
     if(!kids.length){rec.y=rows++;return rec}
     var first=null,last=null;
@@ -1056,7 +1074,7 @@ function renderLineage(){
     var rn=nodes.find(function(x){return x[0]===lineageRootId});
     bnd={t:'none',pw:rn?FL[rn[3]]:''};
   }
-  var BW=bnd?250:0;
+  var BW=bnd?372:0;
 
   var maxDepth=Math.max.apply(null,laid.map(function(r){return r.depth}));
   var W=PADX*2+BW+COL*maxDepth+300, H=PADY+ROW*Math.max(rows,1)+PADY;
@@ -1084,12 +1102,12 @@ function renderLineage(){
     el('path',{d:'M'+bx+' '+by+'H'+(rp.x-COL*0.2)+'V'+rp.y+'H'+rp.x,'class':'lnk','stroke-dasharray':'3 2'},svg);
     el('circle',{cx:bx,cy:by,r:5,'class':'bnd'},svg);
     var l1,l2;
-    if(bnd.t==='none'){l1='No predicate';l2=bnd.pw+' origin'}
-    else if(bnd.t==='unknown'){l1='Predicate not recorded';l2='summary unavailable in the FDA archives'}
-    else if(bnd.t==='listed'){l1=bnd.id;l2=(bnd.n||'')+' \u00b7 in the AI/ML list, outside this dataset'}
-    else {l1=bnd.id+(bnd.d?' \u00b7 '+bnd.d.slice(0,4):'');l2=(bnd.n||'')+' \u00b7 outside the FDA AI/ML list'}
-    el('text',{x:bx+12,y:by-4,'class':'lbl'},svg).textContent=l1;
-    el('text',{x:bx+12,y:by+7,'class':'bndl'},svg).textContent=l2.length>32?l2.slice(0,31)+'\u2026':l2;
+    if(bnd.t==='none'){l1='No predicate \u00b7 '+bnd.pw+' origin';l2=''}
+    else if(bnd.t==='unknown'){l1='Predicate not recorded';l2='clearance summary unavailable in the FDA archives'}
+    else if(bnd.t==='listed'){l1=bnd.id+' \u00b7 in the AI/ML list, outside this dataset';l2=bnd.n||''}
+    else {l1=bnd.id+(bnd.d?' \u00b7 '+bnd.d.slice(0,4):'')+' \u00b7 outside the FDA AI/ML list';l2=bnd.n||''}
+    el('text',{x:bx+12,y:by-4,'class':'lbl'},svg).textContent=l1.length>42?l1.slice(0,41)+'\u2026':l1;
+    if(l2)el('text',{x:bx+12,y:by+7,'class':'bndl'},svg).textContent=l2.length>36?l2.slice(0,35)+'\u2026':l2;
   }
   lineageNodes=laid;
   laid.forEach(function(r){
@@ -1150,10 +1168,21 @@ function renderLineage(){
     },0);
   }
 
+  if(lineageRefocus){
+    var back=svg.querySelector('[data-id="'+lineageRefocus+'"]');
+    if(back){svg.querySelectorAll('g.nd').forEach(function(x){x.setAttribute('tabindex',-1)});
+      back.setAttribute('tabindex',0);back.focus()}
+    lineageRefocus=null;
+  }
   var total=laid.length, matching=laid.filter(function(r){return !fIdSet||fIdSet.has(r.id)}).length;
   var fam=familySize(lineageRootId,{});
   var yrs=laid.map(function(r){var n=nodes.find(function(x){return x[0]===r.id});return n?n[1].slice(0,4):''}).filter(Boolean).sort();
   var firms={};laid.forEach(function(r){var d=det[r.id];if(d&&d[1])firms[d[1].toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ').trim()]=1});
+  var lostSel = selKey && !pos[selKey] && lineageRootOf(selKey)===lineageRootId;
+  document.getElementById('lineageNote').innerHTML = lostSel
+    ? 'The selected device <strong>'+esc(selKey)+'</strong> is deeper than '+maxGen+
+      ' predicate step'+(maxGen===1?'':'s')+'. <button class="lk" onclick="document.getElementById(\'lineageDepth\').value=99;renderLineage()">Show the whole family</button>'
+    : '';
   meta.textContent=(matching===total?total+' devices':matching+' matching of '+total+' shown')+
     (total<fam?' ('+fam+' in the family, depth limited)':'')+
     ' \u00b7 '+(yrs.length?yrs[0]+'\u2013'+yrs[yrs.length-1]:'')+
@@ -1161,11 +1190,15 @@ function renderLineage(){
     ' \u00b7 '+Object.keys(firms).length+' manufacturers';
 }
 function lineagePick(id){
-  var f=fNodes.find(function(n){return n[0]===id});
+  // context nodes sit outside the filter but are still real devices; opening
+  // the record is the useful response, not silence
+  var f=fNodes.find(function(n){return n[0]===id})||nodes.find(function(n){return n[0]===id});
   if(!f)return;
   selKey=id;hlN(id);showDet(f);writeUrl(true);
+  lineageRefocus=id;
   renderLineage();
 }
+var lineageRefocus=null;
 // selecting a device anywhere retargets the lineage diagram to its lineage
 function lineageFocus(id){
   if(!fIdSet||!fIdSet.has(id))return;
@@ -1177,12 +1210,24 @@ function exportLineage(fmt){
   if(fmt==='svg'){
     var svg=document.getElementById('lineage').cloneNode(true);
     svg.setAttribute('xmlns',SVGNS);
-    var css='<style>.lnk{fill:none;stroke:#9aa1b0;stroke-width:1.2}.lbl{font:11px sans-serif;fill:#2a2e3a;dominant-baseline:middle}'+
-      '.sub{font:10px monospace;fill:#7a8090;dominant-baseline:middle}.gen{font:10px monospace;fill:#9aa0ae}.hit{fill:none}</style>';
-    var out='<?xml version="1.0" encoding="UTF-8"?>\n'+svg.outerHTML.replace('>',' >').replace('<svg ','<svg ').replace(/^<svg([^>]*)>/,'<svg$1>'+css);
+    var css='<style type="text/css"><![CDATA['+
+      '.lnk{fill:none;stroke:#9aa1b0;stroke-width:1.2}'+
+      '.lbl{font:700 11px monospace;fill:#2a2e3a;dominant-baseline:middle}'+
+      '.sub{font:10px sans-serif;fill:#7a8090;dominant-baseline:middle}'+
+      '.lbl.ctx,.sub.ctx{opacity:.4}'+
+      '.bnd{fill:#fff;stroke:#8a90a0;stroke-width:1.2;stroke-dasharray:3 2}'+
+      '.bndl{font:10px monospace;fill:#8a90a0;dominant-baseline:middle}'+
+      '.gen{font:10px monospace;fill:#9aa0ae}.hit{fill:none}'+
+      '.sel .lbl{font-weight:700;fill:#000}'+
+      ']]></style>';
+    var title='<title>Predicate lineage of '+(det[lineageRootId]?det[lineageRootId][0]:lineageRootId)+
+      ' ('+lineageRootId+'). '+document.getElementById('lineageMeta').textContent+
+      ' Dataset: '+spec+'. Source: predicates.app.</title>';
+    var out='<?xml version="1.0" encoding="UTF-8"?>\n'+
+      svg.outerHTML.replace(/^<svg([^>]*)>/,'<svg$1>'+title+css);
     dl(new Blob([out],{type:'image/svg+xml'}),base+'.svg');
   }else{
-    var head=['Generation','Submission','Device','Company','Decision date','Pathway','Predicate provenance','Predicate'];
+    var head=['Predicate step','Submission','Device','Company','Decision date','Pathway','Predicate provenance','Predicate'];
     function q(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
     var rows=lineageNodes.map(function(r){
       var n=nodes.find(function(x){return x[0]===r.id})||[],d=det[r.id]||[];
@@ -1577,6 +1622,14 @@ function onC(e){
   if(dragMoved){dragMoved=false;return}
   var r=cv.getBoundingClientRect(),f=findAt(e.clientX-r.left,e.clientY-r.top);if(!f){if(hlSet){hlSet=null;selKey=null;document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';document.getElementById('side').classList.add('cl');setTimeout(resize,50);writeUrl(false)}return}selKey=f;var p=posMap.get(f);showDet(p.n);hlN(f);draw();writeUrl(true)}
 function hlN(id){var ad={};fEdges.forEach(function(e){if(!ad[e[0]])ad[e[0]]=[];if(!ad[e[1]])ad[e[1]]=[];ad[e[0]].push(e[1]);ad[e[1]].push(e[0])});var vis=new Set(),q=[id];while(q.length){var c=q.shift();if(vis.has(c))continue;vis.add(c);(ad[c]||[]).forEach(function(n){if(!vis.has(n))q.push(n)})}hlSet=vis}
+var _syncing=false;
+function syncLineage(){
+  if(_syncing||curView!=='lineage')return;
+  _syncing=true;
+  if(selKey)lineageFocus(selKey);
+  renderLineage();
+  _syncing=false;
+}
 function showDet(n){
   var sd=document.getElementById('side');sd.classList.remove('cl');setTimeout(resize,50);
   var id=n[0],d=det[id],nm=d?d[0]:'Unknown',co=d?d[1]:'Unknown',url=d?d[2]:'',desc=d&&d[3]?d[3]:'';
@@ -1663,6 +1716,7 @@ function showDet(n){
     lead='<div style="background:#f4f6f8;border-left:3px solid '+PC[n[4]]+';padding:10px 12px;margin-bottom:14px;font-size:12.5px;line-height:1.55;color:#333">'+
       '<strong>'+esc(nm)+'</strong> was '+FV[n[3]]+' on '+n[1]+' via '+FL[n[3]]+', '+what+'.</div>';
   })();
+  setTimeout(syncLineage,0);
   document.getElementById('sb').innerHTML=lead+
     // Copyable submission number with copy button
     '<div class="fd"><div class="fl">Submission Number</div><div class="fv" style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--mn);font-size:14px;font-weight:600;user-select:all">'+id+'</span><button onclick="copyId(this,\''+id+'\')" class="cpb" style="background:#eee;border:1px solid #ccc;border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;color:#555">Copy</button></div></div>'+
@@ -1681,7 +1735,7 @@ function showDet(n){
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+
     (url?'<a href="'+escAttr(url)+'" target="_blank" style="background:#2563eb;color:#fff;text-decoration:none;font-size:11px;padding:5px 12px;border-radius:4px;font-weight:500">FDA Summary \u2192</a>':'')+
     '<button onclick="centerNet(\''+id+'\')" style="background:#eee;border:1px solid #ccc;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:500">Centre network</button>'+
-    ((predMap[id]||(filteredChildren()[id]||[]).length)?'<button onclick="lineageFocus(\''+id+'\');showView(\'lineage\')" style="background:#eee;border:1px solid #ccc;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:500">View lineage</button>':'')+
+    ((predMap[id]||(datasetChildren()[id]||[]).length)?'<button onclick="lineageFocus(\''+id+'\');showView(\'lineage\')" style="background:#eee;border:1px solid #ccc;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:500">View lineage</button>':'')+
     '</div>';
 }
 // Ranked match over submission, device name and company. Substring-only
@@ -1746,7 +1800,7 @@ function search(){
     document.getElementById('side').classList.remove('cl');setTimeout(resize,50);hideAC();
   }
 }
-function clr(){hlSet=null;selKey=null;document.getElementById('q').value='';document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';hideAC();draw();writeUrl(false)}
+function clr(){hlSet=null;selKey=null;document.getElementById('q').value='';document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';hideAC();draw();writeUrl(false);syncLineage()}
 // URL state. Selecting a device pushes history so Back walks the predicate
 // chain the user followed; changing dataset or filters replaces state, because
 // nobody expects Back to undo a filter one step at a time.
@@ -1789,7 +1843,7 @@ function readUrl(){
   }
   hlSet=null;selKey=null;
   document.getElementById('sb').innerHTML='<div class="ph">Click a device node to view details</div>';
-  draw();
+  draw();syncLineage();
   return false;
 }
 window.addEventListener('popstate',function(){ _urlLock=true; readUrl(); _urlLock=false; });
@@ -1806,6 +1860,7 @@ function clickDev(id){
   if(f){hlN(f[0]);selKey=f[0];showDet(f);fit();var p=posMap.get(f[0]);if(p){tx.x=cv.clientWidth/2-p.x*tx.s;tx.y=cv.clientHeight/2-p.y*tx.s}draw();writeUrl(true)}
 }
 function centerNet(id){
+  if(curView!=='network'){showView('network');setTimeout(function(){centerNet(id)},60);return}
   // Fit the highlighted network into view
   if(!hlSet||!hlSet.size)return;
   var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
