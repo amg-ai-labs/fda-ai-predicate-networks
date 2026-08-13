@@ -274,7 +274,7 @@ footer{text-align:center;background:var(--dk);color:#7a8098;padding:24px;font-si
     <select id="lineageAnchor" aria-label="Choose a lineage to display" style="max-width:420px"></select>
     <label style="font-size:11px;color:var(--t2);font-weight:600">View</label>
     <select id="lineageMode" aria-label="Lineage presentation">
-      <option value="table">Table</option><option value="diagram">Diagram</option>
+      <option value="diagram">Diagram</option><option value="table">Table</option>
     </select>
     <button class="b2" id="lineageAll" style="padding:5px 12px;display:none" onclick="lineageShowAll=!lineageShowAll;renderLineage()"></button>
     <button class="b2" style="padding:5px 12px" onclick="exportLineage('svg')">Download SVG</button>
@@ -1307,7 +1307,7 @@ function renderLineage(){
   var ch=datasetChildren();
 
   // tidy tree: depth sets the column, leaf order sets the row
-  var ROW=26, BAND=196, GUT=52, COL=BAND+GUT, PADX=26, PADY=46;
+  var ROW=25, BAND=178, GUT=40, COL=BAND+GUT, PADX=22, PADY=44;
   // draw exactly the devices the table would list, so the two agree
   var visible={};
   lineageRows(lineageRootId).forEach(function(r){visible[r.id]=1});
@@ -1341,7 +1341,11 @@ function renderLineage(){
     var rn=nodes.find(function(x){return x[0]===lineageRootId});
     bnd={t:'none',pw:rn?FL[rn[3]]:''};
   }
-  var BW=bnd?372:0;
+  var bLab=bnd?((bnd.t==='none'?'No predicate \u00b7 '+bnd.pw:
+                 bnd.t==='unknown'?'Predicate not recorded':
+                 bnd.t==='listed'?bnd.id+' \u00b7 in the AI/ML list, outside this dataset':
+                 (bnd.id+(bnd.d?' \u00b7 '+bnd.d.slice(0,4):'')+' \u00b7 outside the FDA AI/ML list'))):'';
+  var BW=bnd?Math.min(340,Math.max(190,bLab.length*6.6+34)):0;
 
   laid=laid.filter(function(r){return visible[r.id]});
   laid.forEach(function(r){r.kids=r.kids.filter(function(k){return visible[k]})});
@@ -1424,7 +1428,7 @@ function renderLineage(){
     el('text',{x:p.x+12,y:p.y-5,'class':'lbl'+(inF?'':' ctx')},g).textContent=
       r.id+' \u00b7 '+n[1].slice(0,4)+(r.hidden?' \u00b7 +'+r.hidden+' downstream hidden':'');
     el('text',{x:p.x+12,y:p.y+7,'class':'sub'+(inF?'':' ctx')},g).textContent=
-      name.length>28?name.slice(0,27)+'\u2026':name;
+      name.length>24?name.slice(0,23)+'\u2026':name;
     if(!inF)mark.setAttribute('fill-opacity','.3');
   });
 
